@@ -7,9 +7,11 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
+const testUrl = process.env.TEST_DATABASE_URL ?? `postgresql://${process.env.USER ?? "postgres"}@localhost:5432/circular_test`;
 const env = {
   ...process.env,
-  DATABASE_URL: process.env.TEST_DATABASE_URL ?? `postgresql://${process.env.USER ?? "postgres"}@localhost:5432/circular_test`,
+  DATABASE_URL: testUrl,
+  DATABASE_URL_UNPOOLED: testUrl,
   NODE_ENV: "test",
   PASS_TOKEN_SECRET: "test-only-pass-token-secret-0123456789abcdef",
   APP_BASE_URL: "http://test.local",

@@ -14,7 +14,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Uygulama havuzlu ("pooled") bağlantıyı, migration'lar doğrudan bağlantıyı kullanır.
+  // Yerelde ikisi de aynı adrestir.
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // ─────────────────────────────────────────────── Kimlik & oturum
