@@ -1,0 +1,933 @@
+// Circular — veri modeli
+//
+// İlkeler
+// - Tüm zamanlar UTC olarak saklanır; gösterim Europe/Istanbul (src/lib/datetime.ts).
+// - Durum alanları String tutulur; geçerli değerler src/lib/domain.ts içindedir
+//   (SQLite ↔ Postgres taşınabilirliği için native enum kullanılmadı).
+// - Tenant'a bağlı alt kayıtlar, ebeveynlerine [id, tenantId] composite FK ile bağlanır.
+//   Böylece bir kayıt veritabanı seviyesinde başka bir tenant'ın kaydına bağlanamaz.
+// - "Faz 2" işaretli modeller ilişkileri hazırlamak için vardır; Faz 1 arayüzü bunlara yazmaz.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────── Kimlik & oturum
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique // küçük harfe normalize
+  name            String
+  passwordHash    String
+  isPlatformAdmin Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  memberships Membership[]
+  sessions    Session[]
+  activities  ActivityLog[]
+}
+
+model Session {
+  id             String   @id @default(cuid())
+  tokenHash      String   @unique // cookie'deki rastgele token'ın SHA-256 özeti
+  userId         String
+  activeTenantId String?
+  activeVenueId  String? // null = tüm mekanlar
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  userAgent      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─────────────────────────────────────────────── Tenant & mekan
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  status    String   @default("ACTIVE") // ACTIVE | SUSPENDED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  venues               Venue[]
+  memberships          Membership[]
+  customers            Customer[]
+  tags                 Tag[]
+  events               Event[]
+  activities           ActivityLog[]
+  perks                Perk[]
+  menuConfig           MenuConfig?
+  menuCategories       MenuCategory[]
+  menuItems            MenuItem[]
+  menuAssets           MenuAsset[]
+  menuCampaign         MenuCampaign?
+  prTasks              PrTask[]
+  whatsAppAccount      WhatsAppAccount?
+  campaigns            Campaign[]
+  testRecipients       MessagingTestRecipient[]
+  smsAccount           SmsAccount?
+  emailSettings        EmailSettings?
+  emailTestRecipients  EmailTestRecipient[]
+  instagramAccount     InstagramAccount?
+  instagramAutoReplies InstagramAutoReply[]
+}
+
+model Venue {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  slug          String   @unique // platform linki: /v/[slug] (Faz 2 public sayfalar)
+  type          String // RESTAURANT | CAFE | PUB | NIGHTCLUB | EVENT_SPACE
+  city          String?
+  address       String?
+  logoUrl       String?
+  coverImageUrl String?
+  timezone      String   @default("Europe/Istanbul")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  events           Event[]
+  venueAccess      MembershipVenue[]
+  venueMemberships VenueMembership[]
+  perks            Perk[]
+  menuCampaigns    MenuCampaign[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId])
+}
+
+// Kullanıcının bir tenant içindeki rolü. Platform yöneticisi User.isPlatformAdmin ile ayrıdır.
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  tenantId  String
+  role      String // OWNER_ADMIN | CRM_MANAGER | PR | DOOR | WAITER
+  status    String   @default("ACTIVE") // ACTIVE | DISABLED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant                Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  venueAccess           MembershipVenue[]
+  prAssignments         EventPrAssignment[]
+  promotedRegistrations EventRegistration[] @relation("RegistrationPromoter")
+  prTaskRecipients      PrTaskRecipient[]
+  prInviteLinks         PrInviteLink[]
+
+  @@unique([userId, tenantId])
+  @@unique([id, tenantId])
+  @@index([tenantId])
+}
+
+// Mekan kısıtı: bir üyeliğin hiç satırı yoksa tenant'ın tüm mekanlarına erişir.
+model MembershipVenue {
+  membershipId String
+  venueId      String
+  tenantId     String
+
+  membership Membership @relation(fields: [membershipId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  venue      Venue      @relation(fields: [venueId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@id([membershipId, venueId])
+  @@index([venueId])
+}
+
+// ─────────────────────────────────────────────── CRM
+
+// Müşteri işletme (tenant) düzeyinde tek kayıttır. Tenant'lar arası birleştirme yapılmaz.
+model Customer {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  firstName          String
+  lastName           String
+  searchName         String // Türkçe katlanmış "ad soyad" (arama için)
+  phone              String? // E.164 (+905321234567)
+  email              String? // küçük harf
+  birthDate          String? // YYYY-MM-DD (saat dilimi kaymasını önlemek için metin)
+  notes              String?
+  source             String // MANUAL | IMPORT | WALK_IN | QR_MENU | EVENT_PAGE | PR_REFERRAL | PR_GUEST | STAFF_GUEST
+  sourceVenueId      String?
+  sourceMembershipId String? // müşteriyi getiren PR/personel (Faz 2 atama kuralı)
+  createdByUserId    String?
+  archivedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tags             CustomerTag[]
+  consents         ContactConsent[]
+  venueMemberships VenueMembership[]
+  registrations    EventRegistration[]
+  checkIns         CheckIn[]
+  passes           Pass[]
+  perkRedemptions  PerkRedemption[]
+  campaignMessages CampaignMessage[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, phone])
+  @@unique([tenantId, email])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, searchName])
+  @@index([tenantId, source])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  nameKey   String // katlanmış ad; "VIP" ve "vip" aynı etikettir
+  createdAt DateTime @default(now())
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customers CustomerTag[]
+
+  @@unique([id, tenantId])
+  @@unique([tenantId, nameKey])
+}
+
+model CustomerTag {
+  customerId String
+  tagId      String
+  tenantId   String
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@id([customerId, tagId])
+  @@index([tagId])
+}
+
+// Kanal bazlı iletişim izni. Satır yoksa izin YOKTUR.
+// Guest eklemek, üyelik veya menü görüntüleme izin oluşturmaz.
+model ContactConsent {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  customerId         String
+  channel            String // WHATSAPP | SMS | EMAIL
+  status             String // GRANTED | REVOKED
+  source             String // STAFF_RECORDED | PUBLIC_SIGNUP | PREFERENCE_CENTER | OPT_OUT_REPLY
+  note               String? // izin nasıl alındı (ör. "Kağıt form, kasa")
+  consentTextVersion String? // Faz 2: public formdaki metin sürümü
+  recordedByUserId   String?
+  grantedAt          DateTime?
+  revokedAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  customer Customer @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([customerId, channel])
+  @@index([tenantId, channel, status])
+}
+
+// Mekanın özel üyelik alanına katılım (müşteri kendi başlatır — Faz 2 public kayıt).
+// CRM kaydı ≠ üyelik ≠ iletişim izni.
+model VenueMembership {
+  id         String    @id @default(cuid())
+  tenantId   String
+  venueId    String
+  customerId String
+  status     String    @default("ACTIVE") // ACTIVE | LEFT
+  source     String // QR_MENU | EVENT_PAGE | PR_REFERRAL
+  joinedAt   DateTime  @default(now())
+  leftAt     DateTime?
+
+  venue    Venue    @relation(fields: [venueId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([venueId, customerId])
+  @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────── Etkinlik & guest
+
+model Event {
+  id                   String    @id @default(cuid())
+  tenantId             String
+  venueId              String
+  name                 String
+  description          String?
+  startsAt             DateTime
+  endsAt               DateTime
+  capacity             Int? // kişi (partySize toplamı); null = sınırsız
+  registrationOpensAt  DateTime? // public kayıt penceresi (Faz 2)
+  registrationClosesAt DateTime?
+  entryClosesAt        DateTime? // giriş kapanışı; null ise endsAt. No-show ancak bundan sonra belirlenir.
+  status               String    @default("DRAFT") // DRAFT | PUBLISHED | CANCELLED
+  publishedAt          DateTime?
+  cancelledAt          DateTime?
+  createdByUserId      String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  venue         Venue               @relation(fields: [venueId, tenantId], references: [id, tenantId])
+  registrations EventRegistration[]
+  prAssignments EventPrAssignment[]
+  checkIns      CheckIn[]
+  prTasks       PrTask[]
+  prInviteLinks PrInviteLink[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, startsAt])
+  @@index([venueId, startsAt])
+}
+
+// Etkinliğe katılım kaydı (guest). Müşteri profili, giriş hakkı ve gerçek check-in ayrı kavramlardır.
+model EventRegistration {
+  id               String    @id @default(cuid())
+  tenantId         String
+  eventId          String
+  customerId       String
+  partySize        Int       @default(1) // ana misafir dahil toplam kişi; isimsiz ekler CRM üyesi sayılmaz
+  channel          String // STAFF | PR | PUBLIC_PAGE | PR_REFERRAL | WALK_IN
+  completionStatus String    @default("STAFF_ENTERED") // STAFF_ENTERED | SELF_COMPLETED
+  accessStatus     String    @default("ACTIVE") // giriş hakkı: ACTIVE | CANCELLED
+  prMembershipId   String? // guest'i getiren PR (promoter) üyeliği
+  addedByUserId    String?
+  note             String?
+  cancelledAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  event        Event       @relation(fields: [eventId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  customer     Customer    @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  checkIns     CheckIn[]
+  passes       Pass[]
+  // Composite FK: PR yalnızca aynı tenant'ın üyeliği olabilir.
+  prMembership Membership? @relation("RegistrationPromoter", fields: [prMembershipId, tenantId], references: [id, tenantId], onDelete: NoAction)
+
+  @@unique([eventId, customerId]) // aynı müşteri aynı etkinliğe iki kez eklenemez
+  @@unique([id, tenantId])
+  @@index([tenantId, createdAt])
+  @@index([customerId])
+  @@index([tenantId, eventId, prMembershipId])
+}
+
+// Faz 2 — PR'a atanan etkinlikler.
+model EventPrAssignment {
+  eventId      String
+  membershipId String
+  tenantId     String
+  createdAt    DateTime @default(now())
+
+  event      Event      @relation(fields: [eventId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@id([eventId, membershipId])
+}
+
+// Gerçek giriş. Kayıt olmak veya QR açmak check-in değildir.
+// Bir guest kaydı için en fazla bir giriş (registrationId benzersiz) — çift girişi DB seviyesinde engeller.
+model CheckIn {
+  id                String   @id @default(cuid())
+  tenantId          String
+  eventId           String
+  registrationId    String
+  customerId        String
+  admittedCount     Int      @default(1)
+  method            String // QR | MANUAL
+  passId            String?
+  checkedInByUserId String?
+  checkedInAt       DateTime @default(now())
+
+  event        Event             @relation(fields: [eventId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  registration EventRegistration @relation(fields: [registrationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  customer     Customer          @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([registrationId])
+  @@index([tenantId, eventId])
+}
+
+// Kişiye özel QR. QR yalnızca opak token taşır (HMAC(PASS_TOKEN_SECRET, id)); DB'de token'ın SHA-256 özeti tutulur.
+// Çift kullanım: useCount üzerinde compare-and-set (UPDATE ... WHERE useCount = okunan değer) — atomik.
+model Pass {
+  id             String    @id @default(cuid())
+  tenantId       String
+  purpose        String // EVENT_ENTRY | PERK_REDEMPTION
+  tokenHash      String    @unique
+  customerId     String
+  registrationId String? // EVENT_ENTRY
+  perkId         String? // PERK_REDEMPTION
+  validFrom      DateTime?
+  validUntil     DateTime?
+  maxUses        Int       @default(1)
+  useCount       Int       @default(0)
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  issuedByUserId String?
+  createdAt      DateTime  @default(now())
+
+  customer     Customer           @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  registration EventRegistration? @relation(fields: [registrationId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  perk         Perk?              @relation(fields: [perkId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  redemptions  PerkRedemption[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId])
+  @@index([registrationId])
+  @@index([customerId, perkId])
+}
+
+// ─────────────────────────────────────────────── Avantajlar
+
+// Mekanın tanımladığı avantaj / ikram. Kullanımı kişiye özel PERK_REDEMPTION QR'ı ile doğrulanır.
+model Perk {
+  id               String    @id @default(cuid())
+  tenantId         String
+  venueId          String? // null = işletmenin tüm mekanlarında geçerli
+  name             String
+  description      String?
+  terms            String? // kullanım koşulları
+  validFrom        DateTime?
+  validUntil       DateTime?
+  perCustomerLimit Int       @default(1) // kişi başı toplam kullanım hakkı
+  status           String    @default("ACTIVE") // ACTIVE | ARCHIVED
+  createdByUserId  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  venue         Venue?           @relation(fields: [venueId, tenantId], references: [id, tenantId])
+  passes        Pass[]
+  redemptions   PerkRedemption[]
+  menuCampaigns MenuCampaign[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, status])
+}
+
+// Gerçekleşmiş avantaj kullanımı (personel doğrulaması ile).
+model PerkRedemption {
+  id               String   @id @default(cuid())
+  tenantId         String
+  perkId           String
+  passId           String
+  customerId       String
+  redeemedByUserId String?
+  redeemedAt       DateTime @default(now())
+
+  perk     Perk     @relation(fields: [perkId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  pass     Pass     @relation(fields: [passId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([tenantId, redeemedAt])
+  @@index([perkId, customerId])
+}
+
+// ─────────────────────────────────────────────── Aktivite
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  actorUserId String?
+  action      String // customer.created, event.registration_added, ...
+  entityType  String // customer | event | registration | consent
+  entityId    String
+  customerId  String?
+  eventId     String?
+  metadata    String? // JSON — gösterim için anlık görüntü (ad, etkinlik adı vb.)
+  createdAt   DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([customerId, createdAt])
+  @@index([eventId, createdAt])
+}
+
+// ─────────────────────────────────────────────── QR Menü (menü oluşturucu)
+
+/**
+ * İşletmenin menü tasarım ayarları. Tenant başına tek kayıt.
+ */
+model MenuConfig {
+  id               String   @id @default(cuid())
+  tenantId         String   @unique
+  logoUrl          String? // eski sürüm: dış adres. Yeni logolar MenuAsset olarak yüklenir.
+  logoAssetId      String?
+  coverAssetId     String?
+  backgroundColor  String   @default("#080808")
+  themeStyle       String   @default("MINIMAL") // şablon: MINIMAL | CLASSIC | BOLD | CARDS | GRID | EDITORIAL
+  accentColor      String   @default("#f7f7f5")
+  textColor        String? // null = arka plana göre otomatik
+  fontPair         String   @default("GROTESK") // GROTESK | SERIF | CONDENSED | MONO
+  cornerStyle      String   @default("SOFT") // SHARP | SOFT | ROUND
+  surfaceStyle     String   @default("OUTLINE") // FLAT | OUTLINE | FILLED
+  density          String   @default("COMFORTABLE") // COMPACT | COMFORTABLE
+  headerAlign      String   @default("CENTER") // CENTER | LEFT
+  priceStyle       String   @default("SYMBOL") // SYMBOL | SUFFIX | PLAIN
+  tagline          String?
+  showImages       Boolean  @default(true)
+  showDescriptions Boolean  @default(true)
+  showCategoryNav  Boolean  @default(true)
+  showFeatured     Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Composite FK: görsel yalnızca aynı tenant'a ait olabilir.
+  logo   MenuAsset? @relation("MenuConfigLogo", fields: [logoAssetId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  cover  MenuAsset? @relation("MenuConfigCover", fields: [coverAssetId, tenantId], references: [id, tenantId], onDelete: NoAction)
+
+  @@unique([id, tenantId])
+}
+
+model MenuCategory {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  MenuItem[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, order])
+}
+
+model MenuItem {
+  id           String   @id @default(cuid())
+  tenantId     String
+  categoryId   String
+  name         String
+  description  String?
+  price        Float
+  image        String? // eski sürüm: dış adres. Yeni fotoğraflar MenuAsset olarak yüklenir.
+  imageAssetId String?
+  badges       String   @default("") // virgülle ayrılmış rozet kodları (sabit liste)
+  isFeatured   Boolean  @default(false)
+  isAvailable  Boolean  @default(true)
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant   Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Composite FK: ürün, yalnızca aynı tenant'ın kategorisine bağlanabilir.
+  category MenuCategory @relation(fields: [categoryId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  photo    MenuAsset?   @relation("MenuItemPhoto", fields: [imageAssetId, tenantId], references: [id, tenantId], onDelete: NoAction)
+
+  @@unique([id, tenantId])
+  @@index([tenantId, categoryId, order])
+}
+
+/**
+ * Menü görselleri (logo, kapak, ürün fotoğrafı). Tarayıcıda kırpılmış son hali saklanır.
+ * Dosya depolama altyapısı olmadığı için veri veritabanında tutulur; yalnızca JPEG/PNG kabul edilir.
+ */
+model MenuAsset {
+  id              String   @id @default(cuid())
+  tenantId        String
+  kind            String // LOGO | COVER | ITEM_PHOTO
+  mimeType        String // image/jpeg | image/png
+  data            Bytes
+  width           Int
+  height          Int
+  sizeBytes       Int
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  logoFor     MenuConfig[]   @relation("MenuConfigLogo")
+  coverFor    MenuConfig[]   @relation("MenuConfigCover")
+  itemFor     MenuItem[]     @relation("MenuItemPhoto")
+  campaignFor MenuCampaign[] @relation("MenuCampaignImage")
+
+  @@unique([id, tenantId])
+  @@index([tenantId, kind, createdAt])
+}
+
+/**
+ * Menüdeki kampanya popup'ı. Tenant başına tek kayıt.
+ * Popup'a dokunan kişi herkese açık kayıt sayfasına gider; kayıt işletmenin CRM'ine düşer.
+ * Avantaj bağlıysa yeni üyeye o avantajın kişiye özel QR'ı verilir.
+ */
+model MenuCampaign {
+  id           String   @id @default(cuid())
+  tenantId     String   @unique
+  isActive     Boolean  @default(false)
+  title        String
+  description  String?
+  ctaLabel     String   @default("Hemen katıl")
+  imageAssetId String?
+  perkId       String?
+  venueId      String? // kayıt olanın üyeliğinin açılacağı mekan
+  delaySeconds Int      @default(3)
+  privacyUrl   String? // işletmenin aydınlatma metni adresi
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  image  MenuAsset? @relation("MenuCampaignImage", fields: [imageAssetId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  perk   Perk?      @relation(fields: [perkId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  venue  Venue?     @relation(fields: [venueId, tenantId], references: [id, tenantId], onDelete: NoAction)
+
+  @@unique([id, tenantId])
+}
+
+// ─────────────────────────────────────────────── PR yönetimi: talimatlar
+
+/**
+ * Yönetimin PR'lara verdiği talimat: duyuru, görev veya etkinlik için misafir hedefi.
+ * Yalnızca panel içinde görünür (SMS/WhatsApp bildirimi gönderilmez).
+ */
+model PrTask {
+  id              String    @id @default(cuid())
+  tenantId        String
+  kind            String // ANNOUNCEMENT | TODO | GUEST_TARGET
+  title           String
+  body            String?
+  eventId         String?
+  guestTarget     Int? // GUEST_TARGET: PR başına kişi hedefi
+  dueAt           DateTime?
+  status          String    @default("OPEN") // OPEN | CLOSED
+  closedAt        DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event      Event?            @relation(fields: [eventId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  recipients PrTaskRecipient[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, status, createdAt])
+}
+
+/**
+ * PR'ın etkinliğe özel davet linki. Misafir linkten kendi kaydını yapar; kayıt bu PR'a atfedilir.
+ * PR + etkinlik başına tek aktif link; yenilenince eskisi iptal edilir.
+ */
+model PrInviteLink {
+  id           String    @id @default(cuid())
+  tenantId     String
+  eventId      String
+  membershipId String
+  code         String    @unique // URL'deki rastgele, tahmin edilemez kod
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  event      Event      @relation(fields: [eventId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([id, tenantId])
+  @@index([tenantId, eventId, membershipId])
+}
+
+/**
+ * Talimatın alıcısı olan PR ve okuma/tamamlama durumu.
+ */
+model PrTaskRecipient {
+  id           String    @id @default(cuid())
+  tenantId     String
+  taskId       String
+  membershipId String
+  readAt       DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  task       PrTask     @relation(fields: [taskId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  membership Membership @relation(fields: [membershipId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([taskId, membershipId])
+  @@index([tenantId, membershipId])
+}
+
+// ─────────────────────────────────────────────── Kampanyalar · WhatsApp
+
+/**
+ * İşletmenin bağladığı WhatsApp Business numarası (işletme başına tek numara).
+ * Erişim token'ı ve kayıt PIN'i AES-256-GCM ile şifreli saklanır (CHANNEL_TOKEN_SECRET); düz değer veritabanına yazılmaz.
+ * Bağlantı kesilince satır silinmez (kampanya geçmişi için), token silinir.
+ */
+model WhatsAppAccount {
+  id                 String    @id @default(cuid())
+  tenantId           String    @unique
+  wabaId             String
+  phoneNumberId      String    @unique
+  displayPhoneNumber String
+  verifiedName       String?
+  qualityRating      String?
+  connectionMethod   String // EMBEDDED_SIGNUP | MANUAL
+  status             String    @default("ACTIVE") // ACTIVE | DISCONNECTED
+  accessTokenEnc     String?
+  registrationPinEnc String?
+  connectedByUserId  String?
+  connectedAt        DateTime  @default(now())
+  disconnectedAt     DateTime?
+  lastSyncedAt       DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templates MessageTemplate[]
+
+  @@unique([id, tenantId])
+}
+
+/**
+ * WhatsApp mesaj şablonu. İşletmenin başlattığı mesaj yalnızca Meta'nın onayladığı şablonla gönderilebilir.
+ */
+model MessageTemplate {
+  id              String    @id @default(cuid())
+  tenantId        String
+  accountId       String
+  wabaId          String // şablon bu WhatsApp Business hesabında oluşturuldu; numara değişirse kullanılamaz
+  name            String // Meta'daki ad: küçük harf, rakam ve alt çizgi
+  language        String    @default("tr")
+  category        String    @default("MARKETING") // MARKETING
+  headerText      String?
+  bodyText        String // tek değişken: {{ad}}
+  footerText      String // ret bilgisi (pazarlama mesajında zorunlu)
+  optOutLabel     String // "Abonelikten çık" hızlı yanıt düğmesi
+  status          String    @default("PENDING") // PENDING | APPROVED | REJECTED | PAUSED | DISABLED
+  metaTemplateId  String?
+  rejectionReason String?
+  submittedAt     DateTime  @default(now())
+  statusUpdatedAt DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  account   WhatsAppAccount @relation(fields: [accountId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@unique([id, tenantId])
+  @@unique([wabaId, name, language])
+  @@index([tenantId, status])
+  @@index([metaTemplateId])
+}
+
+/**
+ * Bir kampanya gönderimi. Test numaralarına yapılan gönderimler de kaydedilir (mode TEST).
+ */
+model Campaign {
+  id                    String    @id @default(cuid())
+  tenantId              String
+  channel               String    @default("WHATSAPP") // WHATSAPP | SMS | EMAIL
+  mode                  String // LIVE | TEST
+  name                  String
+  templateId            String? // yalnızca WhatsApp (Meta onaylı şablon)
+  subject               String? // e-posta konusu
+  body                  String? // SMS / e-posta metni (gönderim anındaki hali)
+  ctaLabel              String? // e-posta düğmesi
+  ctaUrl                String?
+  audienceKind          String // SEGMENT | TAG | EVENT | SELECTED | TEST_NUMBERS
+  audienceKey           String? // segment anahtarı, etiket veya etkinlik kimliği
+  audienceLabel         String // gönderim anındaki kitle açıklaması
+  status                String    @default("SENDING") // SENDING | COMPLETED
+  recipientCount        Int // kuyruğa alınan mesaj
+  excludedCount         Int       @default(0) // gönderim öncesi elenen kişi
+  exclusionSummary      String? // JSON: { "NO_CONSENT": 3, ... }
+  estimatedCostMicroUsd Int? // gönderim anındaki tahmini Meta ücreti (1 USD = 1.000.000)
+  createdByUserId       String?
+  startedAt             DateTime  @default(now())
+  completedAt           DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template MessageTemplate?  @relation(fields: [templateId, tenantId], references: [id, tenantId], onDelete: NoAction)
+  messages CampaignMessage[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, createdAt])
+}
+
+/**
+ * Kampanyanın tek alıcıya giden mesajı ve Meta'nın durum bildirimleri.
+ */
+model CampaignMessage {
+  id                String    @id @default(cuid())
+  tenantId          String
+  campaignId        String
+  customerId        String? // test alıcısına gönderimde null
+  toPhone           String? // E.164 (WhatsApp, SMS)
+  toEmail           String? // küçük harf (e-posta)
+  providerMessageId String? // SMS: Netgsm iş (job) kimliği · e-posta: Brevo message-id
+  status            String    @default("QUEUED") // QUEUED | SENDING | ACCEPTED | SENT | DELIVERED | READ | FAILED | SKIPPED
+  skipReason        String? // gönderim anındaki yeniden kontrol: NO_CONSENT | ARCHIVED | IYS_NOT_APPROVED | ...
+  wamid             String?   @unique // Meta mesaj kimliği
+  errorCode         String?
+  errorMessage      String?
+  billable          Boolean? // Meta'nın ücretlendirme bildirimi
+  pricingCategory   String?
+  attemptedAt       DateTime?
+  acceptedAt        DateTime?
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  openedAt          DateTime? // e-posta: açılma (e-posta istemcileri önceden yükleyebilir; kesin değildir)
+  clickedAt         DateTime? // e-posta: bağlantı tıklaması
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  campaign Campaign  @relation(fields: [campaignId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: NoAction)
+
+  @@unique([campaignId, toPhone])
+  @@unique([campaignId, toEmail])
+  @@index([providerMessageId])
+  @@index([campaignId, status])
+  @@index([tenantId, customerId, acceptedAt])
+  @@index([tenantId, createdAt])
+}
+
+/**
+ * Ekibin kendi numaraları. İYS entegrasyonu bağlanana kadar gönderim yalnızca bu numaralara yapılabilir.
+ */
+model MessagingTestRecipient {
+  id              String   @id @default(cuid())
+  tenantId        String
+  phone           String // E.164
+  label           String
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, phone])
+}
+
+// ─────────────────────────────────────────────── Kampanyalar · SMS
+
+/**
+ * İşletmenin Netgsm hesabı (Circular'ın bayi hesabı altındaki alt hesap). Her işletmenin kendi onaylı SMS başlığı
+ * ve İYS markası vardır; Netgsm İYS iş ortağı olarak ticari SMS'i İYS onayı olmayan numaraya iletmez.
+ * API şifresi AES-256-GCM ile şifreli saklanır.
+ */
+model SmsAccount {
+  id                String    @id @default(cuid())
+  tenantId          String    @unique
+  provider          String    @default("NETGSM")
+  username          String // Netgsm abone numarası (kullanıcı kodu)
+  passwordEnc       String? // API alt kullanıcısı şifresi (şifreli)
+  msgheader         String // onaylı SMS başlığı
+  legalFooter       String // ticari SMS'e eklenen yasal bilgi: unvan/MERSIS ve 0800 ret bilgisi
+  status            String    @default("ACTIVE") // ACTIVE | DISCONNECTED
+  connectedByUserId String?
+  connectedAt       DateTime  @default(now())
+  disconnectedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────────────────────── Kampanyalar · E-posta
+
+/**
+ * E-posta gönderici ayarları. Gönderim Circular'ın alan adından yapılır; görünen ad işletmenindir.
+ */
+model EmailSettings {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  senderName      String // "Orbita Kulüp"
+  replyTo         String? // yanıtların gideceği işletme adresi
+  legalFooter     String // ticari iletide zorunlu tanıtıcı bilgi: unvan, adres, MERSIS vb.
+  updatedByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * Ekibin kendi e-posta adresleri: e-posta kampanyasını göndermeden önce deneme.
+ */
+model EmailTestRecipient {
+  id              String   @id @default(cuid())
+  tenantId        String
+  email           String // küçük harf
+  label           String
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, email])
+}
+
+// ─────────────────────────────────────────────── Instagram · DM otomasyonu
+
+/**
+ * İşletmenin Instagram profesyonel hesabı (Instagram API with Instagram Login).
+ * Instagram'da toplu gönderim yoktur; yalnızca kişinin yazdığı mesaja 24 saat içinde yanıt verilebilir.
+ */
+model InstagramAccount {
+  id                String    @id @default(cuid())
+  tenantId          String    @unique
+  igUserId          String    @unique // profesyonel hesabın Instagram kimliği (webhook entry.id)
+  username          String
+  accessTokenEnc    String?
+  tokenExpiresAt    DateTime?
+  connectionMethod  String // OAUTH | MANUAL
+  status            String    @default("ACTIVE") // ACTIVE | DISCONNECTED
+  connectedByUserId String?
+  connectedAt       DateTime  @default(now())
+  disconnectedAt    DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * DM'de anahtar kelimeye otomatik yanıt kuralı.
+ */
+model InstagramAutoReply {
+  id              String    @id @default(cuid())
+  tenantId        String
+  keywords        String // virgülle ayrılmış, katlanmış (Türkçe karakter duyarsız)
+  matchType       String    @default("EXACT") // EXACT: mesajın tamamı · CONTAINS: mesaj içinde geçerse
+  replyText       String // {menu} {kayit} yer tutucuları
+  isActive        Boolean   @default(true)
+  replyCount      Int       @default(0)
+  lastRepliedAt   DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  logs   InstagramReplyLog[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, isActive])
+}
+
+/**
+ * Otomatik yanıt kaydı: aynı mesaja iki kez yanıt verilmez; kişiye aynı kural kısa sürede tekrar tetiklenmez.
+ */
+model InstagramReplyLog {
+  id           String   @id @default(cuid())
+  tenantId     String
+  ruleId       String
+  mid          String   @unique // gelen mesajın kimliği
+  senderHash   String // Instagram kişi kimliğinin SHA-256 özeti (kimlik düz saklanmaz)
+  status       String // SENT | FAILED
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  rule InstagramAutoReply @relation(fields: [ruleId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([tenantId, ruleId, senderHash, createdAt])
+}
