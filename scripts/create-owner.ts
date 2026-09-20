@@ -13,9 +13,13 @@ import { foldText } from "../src/lib/normalize";
 
 const db = new PrismaClient();
 
+/** --ad Kayra Ağar → "Kayra Ağar" (tırnak unutulsa da sonraki --seçeneğe kadar okur). */
 function arg(name: string): string {
   const i = process.argv.indexOf(`--${name}`);
-  return i > -1 ? (process.argv[i + 1] ?? "").trim() : "";
+  if (i === -1) return "";
+  const parts: string[] = [];
+  for (let k = i + 1; k < process.argv.length && !process.argv[k].startsWith("--"); k++) parts.push(process.argv[k]);
+  return parts.join(" ").trim();
 }
 
 const slugify = (value: string) =>
@@ -25,6 +29,17 @@ const slugify = (value: string) =>
     .slice(0, 40);
 
 async function main() {
+  const url = process.env.DATABASE_URL ?? "";
+  if (!/^postgres(ql)?:\/\//.test(url)) {
+    console.error(
+      [
+        "DATABASE_URL tanımlı değil veya geçersiz.",
+        "Komutun başına veritabanı adresini ekleyin; adres postgresql:// ile başlamalı:",
+        '  DATABASE_URL="postgresql://..." DATABASE_URL_UNPOOLED="postgresql://..." npm run create:owner -- --isletme "..." ...',
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
   const tenantName = arg("isletme");
   const venueName = arg("mekan");
   const name = arg("ad");
