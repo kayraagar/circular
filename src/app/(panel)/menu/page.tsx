@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/primitives";
 import { can } from "@/lib/authz";
 import { requirePermission } from "@/lib/context";
 import { publicMenuPath } from "@/modules/menu/campaign";
+import { absoluteUrl } from "@/modules/passes/token";
+import { MenuQrCard } from "@/components/menu/menu-qr-card";
 import { getCampaignOptions, getMenuCampaign } from "@/modules/menu/campaign-service";
 import { getMenu } from "@/modules/menu/service";
 import { MenuBuilder } from "./builder/builder";
@@ -52,6 +54,9 @@ export default async function MenuPage() {
         campaignOptions={campaignOptions}
         slug={ctx.tenant.slug}
       />
+      <div className="mt-6 max-w-sm">
+        <MenuQrCard url={absoluteUrl(publicMenuPath(ctx.tenant.slug))} />
+      </div>
     </div>
   );
 }

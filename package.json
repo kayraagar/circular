@@ -18,7 +18,8 @@
     "setup": "prisma migrate deploy && prisma db seed",
     "test": "node scripts/test.mjs",
     "postinstall": "prisma generate",
-    "create:owner": "tsx scripts/create-owner.ts"
+    "create:owner": "tsx scripts/create-owner.ts",
+    "create:user": "tsx scripts/create-user.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
