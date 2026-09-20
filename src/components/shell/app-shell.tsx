@@ -4,6 +4,7 @@ import type { AppContext } from "@/lib/context";
 import { ROLE_LABELS, VENUE_TYPE_LABELS, labelOf } from "@/lib/domain";
 import { can } from "@/lib/authz";
 import { logoutAction, switchTenantAction, switchVenueAction } from "@/modules/auth/actions";
+import { AssistantDock } from "@/components/assistant/assistant-dock";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { Avatar } from "@/components/ui/primitives";
 import { IconLogout, IconPin } from "@/components/ui/icons";
@@ -150,6 +151,9 @@ export function AppShell({ ctx, children }: { ctx: AppContext; children: ReactNo
           {children}
         </main>
       </div>
+      {can(ctx.membership.role, "assistant.use") && (
+        <AssistantDock scope={{ venueId: ctx.activeVenue?.id ?? null, venueLabel: ctx.activeVenue?.name ?? null }} />
+      )}
     </div>
   );
 }

@@ -18,6 +18,8 @@ const PERMISSIONS = {
   "activity.view": ["OWNER_ADMIN", "CRM_MANAGER"],
   // Raporlar: dönemsel giriş, kayıt, kazanım ve kampanya sonuçları
   "reports.view": ["OWNER_ADMIN", "CRM_MANAGER"],
+  // AI Asistan: yalnızca okur ve taslak önerir; gönderim/düzenleme yetkisi vermez.
+  "assistant.use": ["OWNER_ADMIN", "CRM_MANAGER"],
   "settings.view": ["OWNER_ADMIN"],
   // Hazırlanıyor modülleri (yalnızca bilgi sayfaları)
   "modules.preview": ["OWNER_ADMIN", "CRM_MANAGER"],

@@ -308,6 +308,15 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   yalnızca bu kelimeyse" veya "mesajda bu kelime geçerse", yanıt metni `{menu}` / `{kayit}` bağlantılarıyla. Aynı mesaja bir
   kez, aynı kişiye aynı kural 10 dakikada bir yanıt verilir; kişinin Instagram kimliği düz saklanmaz. Bildirimler
   `/api/webhooks/instagram` (imzalı).
+- **AI Asistan** (soldaki **AI Asistan** → `/assistant`, ayrıca her panel ekranının sağ altındaki **Asistan** düğmesi;
+  işletme sahibi ve CRM yöneticisi): yazılan soruyu tanımlı konularla eşleştirir ve cevabı **kullanıcının yetkili olduğu
+  kayıtlardan** hesaplar — dönem özeti, kapıdan giriş, yoğun saat/gün, yeni müşteri ve kaynakları, biten etkinlikler, PR
+  katkısı, kitle önerisi, iletişim izinleri, kampanya sonuçları, avantajlar ve kanal kurulum durumu. Ayrıca panel rehberi:
+  guest ekleme, kampanya gönderme, QR menü, kapıda giriş, avantaj, PR daveti gibi işleri adım adım anlatıp ilgili ekrana
+  bağlar. Kitleye uygun **taslak mesaj** üretir (şablon metin; işletme adı ve `{{ad}}` yerleştirilir).
+  Asistan hiçbir kaydı değiştirmez, mesaj göndermez; konuşma geçmişi sunucuya kaydedilmez.
+  **Henüz bir dil modeli bağlı değildir:** soru anlama anahtar kelime eşlemesiyle yapılır (Türkçe ek ve ünsüz yumuşaması
+  toleranslı), eşleşme yoksa tahmin yürütmez, anlamadığını söyler ve örnek sorular önerir.
 - **Raporlar** (soldaki **Raporlar** → `/reports`; işletme sahibi ve CRM yöneticisi): 7/30/90 günlük dönem, seçili mekana göre.
   Kapıdan giren kişi, yeni müşteri, etkinlik kaydı ve avantaj kullanımı için önceki dönemle karşılaştırma; günlük giriş eğrisi,
   saate ve haftanın gününe göre yoğunluk (Istanbul saatiyle), biten etkinliklerde davetli → gerçek giriş oranı, PR katkısı,
@@ -317,12 +326,13 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
 
 ### Sonraki fazlara kalanlar
 PR davet linki tıklama ölçümü · public üyelik/etkinlik sayfaları · WhatsApp için İYS entegratör bağlantısı ·
-zamanlanmış/otomatik kampanyalar · yapay zekâ kitle önerileri · WhatsApp Club · AI asistan · rapor dışa aktarma ·
+zamanlanmış/otomatik kampanyalar · asistana dil modeli bağlanması · WhatsApp Club · rapor dışa aktarma ·
 ekip/mekan yönetimi · platform konsolu.
 Ayrıntılar ve açık kararlar: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ### Bilinen eksikler
 - Ayarlar salt okunur: ekip daveti, rol değiştirme ve mekan ekleme yok (demo verisi seed ile gelir).
+- AI Asistan'a dil modeli bağlı değil: serbest cümleleri değil, tanımlı konuları anlar.
 - Şifre sıfırlama ve e-posta doğrulama yok.
 - Giriş hız sınırlayıcısı bellek içidir; tek süreçli dağıtım içindir.
 - Etkinlik guest listesi sayfalanmıyor (yüzlerce kayıt için uygun, binlerce için sayfalama gerekir).

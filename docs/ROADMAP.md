@@ -146,11 +146,21 @@ Açık kalanlar: dışa aktarma (CSV/PDF), kampanya dönüşümü (kampanya sonr
 - Topluluk/grup yönetimi ile birebir kampanya gönderimi **ayrı** yetenekler.
 - Başlamadan önce resmi WhatsApp Business Platform imkanları doğrulanmalı; otomatik topluluk oluşturma veya üye ekleme desteği varsayılmamalı.
 
-## Faz 4 — AI Kampanya Asistanı / Circular Copilot
+## ✔ AI Asistan (Circular Copilot) — ilk sürüm tamamlandı
 
-- Asistan araçları servis katmanını **kullanıcının `ServiceContext`'i ile** çağırır → yetkisiz veriye erişemez.
-- Kampanya gönderme aracı yoktur; yalnızca taslak üretir, onay insanda.
-- Veri yoksa açıkça söyler; model entegrasyonu olmadan hazır yanıtlar gerçek analiz gibi sunulmaz.
+`/assistant` ve her panel ekranının sağ altındaki yardımcı. Soru, tanımlı konularla eşleştirilir; cevap servis katmanı
+**kullanıcının `ServiceContext`'i ile** çağrılarak üretilir, bu yüzden yetkisiz veriye erişilemez. Konular: dönem özeti,
+giriş, yoğunluk, yeni müşteri ve kaynak, etkinlik ve PR performansı, kitle önerisi, izinler, kampanya sonuçları,
+avantajlar, kanal durumu ve 12 başlıkta panel rehberi. Taslak mesaj üretir; gönderme aracı yoktur, onay insandadır.
+Veri yoksa açıkça söyler, sayı uydurmaz.
+
+Açık kalanlar:
+- **Dil modeli bağlanması:** serbest cümle anlama ve cevabın kullanıcının diliyle yazılması. Model sağlayıcısına müşteri
+  verisi gönderileceği için önce KVKK kararı (hangi alanlar gider, maskelenir mi, saklama süresi) ve işletmeye açık bilgi
+  gerekir; karar verilmeden bağlanmamalı.
+- Müşteri arama ve tekil kişi soruları ("Ali en son ne zaman geldi?").
+- Konuşma geçmişinin kaydı (şimdilik yalnızca sekmede tutulur) ve asistan kullanımının denetim kaydı.
+- Özel tarih aralığı ("15 Eylül – 30 Eylül") ve mekan adı geçen sorular ("Orbita Kulüp'te kaç kişi geldi?").
 
 ## Platform ve operasyon
 
