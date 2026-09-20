@@ -40,7 +40,7 @@ function Stats({ items }: { items: { label: string; value: string; sub?: string 
   );
 }
 
-function Rows({ caption, rows, emptyText }: { caption?: string; rows: { label: string; value: string; sub?: string; ratio?: number }[]; emptyText?: string }) {
+function Rows({ caption, rows, emptyText }: { caption?: string; rows: { label: string; value: string; sub?: string; ratio?: number; href?: string }[]; emptyText?: string }) {
   if (rows.length === 0) return <p className="text-[13px] text-muted">{emptyText ?? "Kayıt yok"}</p>;
   const max = Math.max(...rows.map((r) => r.ratio ?? 0), 0.0001);
   return (
@@ -50,7 +50,13 @@ function Rows({ caption, rows, emptyText }: { caption?: string; rows: { label: s
         {rows.map((row, i) => (
           <li key={`${row.label}-${i}`}>
             <div className="flex items-baseline justify-between gap-3 text-[13px]">
-              <span className="min-w-0 truncate text-fg">{row.label}</span>
+              {row.href ? (
+                <Link href={row.href} className="min-w-0 truncate text-fg underline-offset-4 hover:underline">
+                  {row.label}
+                </Link>
+              ) : (
+                <span className="min-w-0 truncate text-fg">{row.label}</span>
+              )}
               <span className="shrink-0 text-muted" data-numeric>
                 {row.value}
               </span>

@@ -1,16 +1,20 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { assertCan, can, type ServiceContext } from "@/lib/authz";
-import { formatShortDate } from "@/lib/datetime";
-import { CHANNELS, CHANNEL_LABELS } from "@/lib/domain";
+import { assertCan, can, venueScope, type ServiceContext } from "@/lib/authz";
+import { formatRelative, formatShortDate } from "@/lib/datetime";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { formatPhone, fullName } from "@/lib/normalize";
+import { CHANNELS, CHANNEL_LABELS, labelOf } from "@/lib/domain";
 import { getChannelOverview } from "@/modules/campaigns/accounts";
 import { getAudienceOptions, type SegmentOption } from "@/modules/campaigns/audience";
 import { getEmailOverview } from "@/modules/campaigns/email-service";
 import { getInstagramOverview } from "@/modules/campaigns/instagram-service";
 import { CAMPAIGN_CHANNELS, CAMPAIGN_CHANNEL_LABELS, SEGMENT_COPY, type CampaignChannel, type SegmentKey } from "@/modules/campaigns/rules";
 import { getSmsAccount } from "@/modules/campaigns/sms-service";
+import { customerSearchWhere } from "@/modules/customers/service";
 import { getPrOverview } from "@/modules/pr/service";
 import { getReports, type Delta, type ReportData } from "@/modules/reports/service";
+import { classifyQuestion, modelReady, phraseLead } from "./model-api";
 import {
   fmt,
   GUIDES,
@@ -20,6 +24,7 @@ import {
   STARTER_QUESTIONS,
   type AnswerBlock,
   type AssistantAnswer,
+  type AssistantTopic,
   type QuestionMatch,
 } from "./rules";
 
@@ -420,6 +425,109 @@ async function channelsAnswer(ctx: ServiceContext, match: QuestionMatch, now: Da
   };
 }
 
+/**
+ * Belirli bir kişiyle ilgili sorular. Kişisel veriler yalnızca panelde gösterilir,
+ * dil modeline gönderilmez (cevap cümlesi bu konuda modele yazdırılmaz).
+ */
+async function customerAnswer(ctx: ServiceContext, match: QuestionMatch, now: Date): Promise<AssistantAnswer> {
+  if (!can(ctx.role, "customers.view")) {
+    return {
+      topic: match.topic,
+      title: "Müşteri",
+      lead: "Müşteri kayıtlarını görme yetkiniz yok.",
+      scope: null,
+      blocks: [note("Bu veriyi işletme sahibi ve CRM yöneticisi görebilir.", "caution")],
+      followUps: STARTER_QUESTIONS.slice(0, 3),
+    };
+  }
+  const search = match.person ? customerSearchWhere(match.person) : undefined;
+  if (!search) {
+    return {
+      topic: match.topic,
+      title: "Müşteri",
+      lead: "Kimi sorduğunuzu anlayamadım.",
+      scope: null,
+      blocks: [note("Kişinin adını veya telefon numarasını yazın: “Ayşe Yılmaz en son ne zaman geldi?”"), links([{ href: "/customers", label: "Müşteriler" }])],
+      followUps: ["Kimlere mesaj atmalıyım?", "Müşteri nasıl eklenir?"],
+    };
+  }
+
+  const rows = await db.customer.findMany({
+    where: { tenantId: ctx.tenantId, ...search },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      email: true,
+      createdAt: true,
+      archivedAt: true,
+      consents: { where: { status: "GRANTED" }, select: { channel: true } },
+      checkIns: { where: { event: venueScope(ctx) }, select: { checkedInAt: true }, orderBy: { checkedInAt: "desc" }, take: 1 },
+      _count: {
+        select: {
+          checkIns: { where: { event: venueScope(ctx) } },
+          registrations: { where: { accessStatus: "ACTIVE" } },
+          perkRedemptions: true,
+        },
+      },
+    },
+    orderBy: { searchName: "asc" },
+    take: 5,
+  });
+
+  if (rows.length === 0) {
+    return {
+      topic: match.topic,
+      title: "Müşteri",
+      lead: `“${match.person}” için kayıt bulunamadı.`,
+      scope: null,
+      blocks: [note("Arama ad, soyad, telefon ve e-posta üzerinde çalışır. Kişi arşivlenmiş de olabilir."), links([{ href: "/customers", label: "Müşteriler" }])],
+      followUps: ["Müşteri nasıl eklenir?", "Kimlere mesaj atmalıyım?"],
+    };
+  }
+
+  const describe = (c: (typeof rows)[number]) => {
+    const last = c.checkIns[0]?.checkedInAt;
+    const parts = [
+      last ? `en son ${formatShortDate(last)} (${formatRelative(last, now)})` : "hiç gelmemiş",
+      `${fmt(c._count.checkIns)} ziyaret`,
+      c._count.registrations > 0 ? `${fmt(c._count.registrations)} kayıt` : null,
+      c._count.perkRedemptions > 0 ? `${fmt(c._count.perkRedemptions)} avantaj` : null,
+      c.consents.length > 0 ? `izin: ${c.consents.map((x) => labelOf(CHANNEL_LABELS, x.channel)).join(", ")}` : "izin yok",
+      c.archivedAt ? "arşivde" : null,
+    ].filter(Boolean);
+    return parts.join(" · ");
+  };
+
+  const one = rows.length === 1 ? rows[0] : null;
+  const lastVisit = one?.checkIns[0]?.checkedInAt ?? null;
+  return {
+    topic: match.topic,
+    title: one ? fullName(one) : "Eşleşen kişiler",
+    lead: one
+      ? lastVisit
+        ? `${fullName(one)} en son ${formatShortDate(lastVisit)} tarihinde geldi (${formatRelative(lastVisit, now)}); toplam ${fmt(one._count.checkIns)} ziyaret.`
+        : `${fullName(one)} kayıtlı ama henüz kapıdan girişi yok.`
+      : `“${match.person}” için ${fmt(rows.length)} kayıt eşleşti.`,
+    scope: null,
+    blocks: [
+      {
+        kind: "rows",
+        rows: rows.map((c) => ({
+          label: fullName(c),
+          value: formatPhone(c.phone) || c.email || "iletişim bilgisi yok",
+          sub: describe(c),
+          href: `/customers/${c.id}`,
+        })),
+      },
+      note("Kişisel bilgiler yalnızca panelde gösterilir; dil modeline gönderilmez."),
+      links([{ href: "/customers", label: "Müşteriler" }]),
+    ],
+    followUps: ["Kimlere mesaj atmalıyım?", "Kaç kişiye mesaj atabilirim?"],
+  };
+}
+
 // ─────────────────────────────────────────────── Taslak metin
 
 /** Kitleye göre hazır metin şablonu. Dil modeli üretmez; işletme adı ve kişi adı yerleştirilir. */
@@ -519,10 +627,55 @@ function unknownAnswer(): AssistantAnswer {
   return {
     topic: "UNKNOWN",
     title: "Bunu anlayamadım",
-    lead: "Henüz bir dil modeli bağlı olmadığı için yalnızca tanımlı konuları anlıyorum; tahmin yürütmek yerine sormayı tercih ederim.",
+    lead: modelReady()
+      ? "Bu soru panelde tuttuğum verilerin dışında kalıyor; tahmin yürütmek yerine sormayı tercih ederim."
+      : "Henüz bir dil modeli bağlı olmadığı için yalnızca tanımlı konuları anlıyorum; tahmin yürütmek yerine sormayı tercih ederim.",
     scope: null,
     blocks: [note("Şunları sorabilirsiniz:")],
     followUps: [...STARTER_QUESTIONS],
+  };
+}
+
+// ─────────────────────────────────────────────── Dil modeli katmanı
+
+/** Ücretsiz model kotasını korur: işletme başına dakikada 20 soru. */
+const modelLimiter = createRateLimiter({ windowMs: 60_000, max: 20 });
+
+/** Cevap cümlesinin modele yazdırılabileceği konular: yalnızca toplu sayılar içerir. */
+const PHRASABLE_TOPICS = new Set<AssistantTopic>(["SUMMARY", "VISITS", "PEAK_TIME", "NEW_CUSTOMERS", "EVENTS", "CONSENTS", "CAMPAIGN_RESULTS", "PERKS", "AUDIENCE"]);
+
+/** Modele gönderilecek özet: etiket ve sayı çiftleri. Kişi adı veya iletişim bilgisi içermez. */
+function factsOf(answer: AssistantAnswer): string {
+  const lines: string[] = [];
+  if (answer.scope) lines.push(`Kapsam: ${answer.scope}`);
+  lines.push(answer.lead);
+  for (const block of answer.blocks) {
+    if (block.kind === "stats") lines.push(...block.items.map((i) => `${i.label}: ${i.value}${i.sub ? ` (${i.sub})` : ""}`));
+    if (block.kind === "rows") lines.push(...block.rows.map((r) => `${r.label}: ${r.value}${r.sub ? ` (${r.sub})` : ""}`));
+    if (block.kind === "note") lines.push(block.text);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Soruyu önce anahtar kelimelerle çözer. Eşleşme zayıfsa ve dil modeli bağlıysa
+ * sınıflandırmayı modele sorar; model erişilemezse anahtar kelime sonucu kullanılır.
+ */
+async function resolveQuestion(ctx: ServiceContext, question: string): Promise<QuestionMatch> {
+  const local = readQuestion(question);
+  if (local.confident || !modelReady()) return local;
+  if (!modelLimiter.hit(ctx.tenantId).allowed) return local;
+
+  const intent = await classifyQuestion(question);
+  if (!intent) return local;
+  return {
+    topic: intent.topic,
+    guide: intent.guide ?? local.guide,
+    periodDays: intent.periodDays,
+    segment: intent.segment ?? local.segment,
+    channel: intent.channel ?? local.channel,
+    person: intent.person ?? local.person,
+    confident: true,
   };
 }
 
@@ -531,7 +684,19 @@ function unknownAnswer(): AssistantAnswer {
 export async function ask(ctx: ServiceContext, input: AskInput, now = new Date()): Promise<AssistantAnswer> {
   assertCan(ctx, "assistant.use");
   const question = (input.question ?? "").slice(0, MAX_QUESTION_LENGTH);
-  const match = readQuestion(question);
+  const match = await resolveQuestion(ctx, question);
+  const answer = await answerFor(ctx, match, input, now);
+
+  // Cevap cümlesini model yazsın: yalnızca toplu sayılar gider ve sayılar doğrulanır.
+  if (PHRASABLE_TOPICS.has(answer.topic) && modelReady() && modelLimiter.hit(ctx.tenantId).allowed) {
+    const facts = factsOf(answer);
+    const lead = await phraseLead({ question, facts });
+    if (lead) return { ...answer, lead };
+  }
+  return answer;
+}
+
+async function answerFor(ctx: ServiceContext, match: QuestionMatch, input: AskInput, now: Date): Promise<AssistantAnswer> {
   const venueLabel = input.venueLabel ?? null;
 
   if (match.topic === "HOWTO") return howToAnswer(match);
@@ -540,6 +705,7 @@ export async function ask(ctx: ServiceContext, input: AskInput, now = new Date()
 
   if (match.topic === "PROMOTERS") return promotersAnswer(ctx, match, now);
   if (match.topic === "CHANNELS") return channelsAnswer(ctx, match, now);
+  if (match.topic === "CUSTOMER") return customerAnswer(ctx, match, now);
 
   if (match.topic === "AUDIENCE" || match.topic === "DRAFT") {
     if (!can(ctx.role, "campaigns.manage")) {

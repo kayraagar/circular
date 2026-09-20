@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/lib/context";
-import { ASSISTANT_LIMITS, ASSISTANT_SKILLS } from "@/modules/assistant/rules";
+import { ASSISTANT_LIMITS, ASSISTANT_SKILLS, modelLimitLine } from "@/modules/assistant/rules";
+import { modelConfig, modelReady } from "@/modules/assistant/model-api";
 import { AssistantChat } from "@/components/assistant/chat";
 import { Badge, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 
@@ -12,6 +13,8 @@ export default async function AssistantPage() {
   // Yalnızca tek bir mekan kapsamdayken mekan adı geçer; "Tüm mekanlar" bir mekan adı değildir
   // ve taslak metinlerde işletme adının yerine geçemez.
   const venueLabel = ctx.activeVenue?.name ?? (ctx.venues.length === 1 ? ctx.venues[0].name : null);
+  const ready = modelReady();
+  const limits = [...ASSISTANT_LIMITS, modelLimitLine(ready)];
 
   return (
     <>
@@ -19,7 +22,7 @@ export default async function AssistantPage() {
         eyebrow={`${ctx.tenant.name} · ${venueLabel ?? "Tüm mekanlar"}`}
         title="AI Asistan"
         description="Verinizi okur, gerçek sayılarla cevaplar ve panelde bir işi nasıl yapacağınızı anlatır."
-        actions={<Badge tone="muted">Dil modeli bağlı değil</Badge>}
+        actions={<Badge tone={ready ? "positive" : "muted"}>{ready ? `Dil modeli bağlı · ${modelConfig().model}` : "Dil modeli bağlı değil"}</Badge>}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -43,7 +46,7 @@ export default async function AssistantPage() {
           <Card>
             <CardHeader title="Sınırlar" />
             <ul className="space-y-2.5 p-5 text-[12px] leading-relaxed">
-              {ASSISTANT_LIMITS.map((limit) => (
+              {limits.map((limit) => (
                 <li key={limit} className="flex gap-2.5">
                   <span aria-hidden className="mt-[6px] size-1.5 shrink-0 rounded-full border border-accent" />
                   <span className="text-muted">{limit}</span>

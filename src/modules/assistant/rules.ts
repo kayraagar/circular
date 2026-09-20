@@ -24,6 +24,7 @@ export const ASSISTANT_TOPICS = [
   "DRAFT",
   "PERKS",
   "CHANNELS",
+  "CUSTOMER",
   "HOWTO",
   "CAPABILITIES",
   "UNKNOWN",
@@ -44,6 +45,7 @@ const TOPIC_KEYWORDS: Record<Exclude<AssistantTopic, "UNKNOWN">, readonly string
   DRAFT: ["taslak", "taslak hazirla", "taslak mesaj", "mesaj yaz", "metin yaz", "ne yazayim", "mesaj hazirla", "kampanya hazirla", "metin oner"],
   PERKS: ["avantaj", "ikram", "hediye", "perk", "kullanilan avantaj"],
   CHANNELS: ["kanal durumu", "bagli mi", "whatsapp durumu", "sms durumu", "eposta durumu", "instagram durumu", "kurulum durumu", "hazir mi"],
+  CUSTOMER: ["en son ne zaman", "kayitli mi", "musteri ara", "numara kayitli", "kim geldi", "bu kisi", "ne zaman geldi"],
   HOWTO: [],
   CAPABILITIES: ["ne yapabilirsin", "neler yapabilirsin", "ne sorabilirim", "nasil calisirsin", "kimsin", "yardim"],
 };
@@ -328,7 +330,27 @@ export type QuestionMatch = {
   periodDays: AssistantPeriod;
   segment: SegmentKey | null;
   channel: CampaignChannel | null;
+  /** Soruda geçen kişi adı veya numara parçası (müşteri sorusu için) */
+  person: string | null;
+  /** Eşleşme güçlü mü? Zayıfsa dil modeli varsa ona sorulur. */
+  confident: boolean;
 };
+
+/** Kişi adı aramasında ayıklanacak sık sözcükler. */
+const PERSON_STOPWORDS = new Set([
+  "en", "son", "ne", "zaman", "geldi", "gelmis", "kim", "kimdir", "bu", "su", "o", "kayitli", "mi", "mu", "var", "yok",
+  "musteri", "kisi", "numara", "telefon", "ara", "arama", "bul", "hangi", "nerede", "nasil", "kac", "kere", "defa", "gun",
+]);
+
+/** Soruda geçen kişi ipucu: önce numara, sonra büyük harfle başlayan adlar. */
+export function readPerson(question: string): string | null {
+  const digits = question.replace(/[^\d]/g, "");
+  if (digits.length >= 7) return digits;
+  const names = [...question.matchAll(/\p{Lu}[\p{Ll}'’]{1,}/gu)]
+    .map((m) => m[0])
+    .filter((w) => !PERSON_STOPWORDS.has(foldText(w)));
+  return names.length > 0 ? names.slice(0, 2).join(" ") : null;
+}
 
 /**
  * Soruyu tek bir konuya bağlar. Skor eşiğin altındaysa UNKNOWN döner —
@@ -336,12 +358,13 @@ export type QuestionMatch = {
  */
 export function readQuestion(question: string): QuestionMatch {
   const words = wordsOf(question);
-  const base: Omit<QuestionMatch, "topic" | "guide"> = {
+  const base = {
     periodDays: readPeriod(question),
     segment: readSegment(question),
     channel: readChannel(question),
+    person: readPerson(question),
   };
-  if (words.length === 0) return { topic: "UNKNOWN", guide: null, ...base };
+  if (words.length === 0) return { topic: "UNKNOWN", guide: null, confident: false, ...base };
 
   // "nasıl / nerede" soruları rehberlere yönelir
   const guideBonus = QUESTION_WORDS.some((q) => words.includes(q)) ? 2 : 0;
@@ -356,15 +379,16 @@ export function readQuestion(question: string): QuestionMatch {
     if (value > best.value) best = { topic: topic as AssistantTopic, guide: null, value };
   }
 
-  if (best.value < 1) return { topic: "UNKNOWN", guide: null, ...base };
-  return { topic: best.topic, guide: best.guide, ...base };
+  if (best.value < 1) return { topic: "UNKNOWN", guide: null, confident: false, ...base };
+  // Yalnızca tek bir kısa kelimeye dayanan eşleşme zayıftır; dil modeli varsa o karar verir.
+  return { topic: best.topic, guide: best.guide, confident: best.value >= 3, ...base };
 }
 
 // ─────────────────────────────────────────────── Cevap biçimi
 
 export type AnswerBlock =
   | { kind: "stats"; items: { label: string; value: string; sub?: string }[] }
-  | { kind: "rows"; caption?: string; rows: { label: string; value: string; sub?: string; ratio?: number }[]; emptyText?: string }
+  | { kind: "rows"; caption?: string; rows: { label: string; value: string; sub?: string; ratio?: number; href?: string }[]; emptyText?: string }
   | { kind: "steps"; steps: string[] }
   | { kind: "bullets"; items: string[] }
   | { kind: "draft"; channel: CampaignChannel; body: string; hint: string }
@@ -412,10 +436,16 @@ export const ASSISTANT_SKILLS: { title: string; example: string }[] = [
 
 export const ASSISTANT_LIMITS = [
   "Yalnızca görmeye yetkili olduğunuz işletme ve mekan verisini okur.",
-  "Kampanya göndermez, kayıt değiştirmez, kimseye mesaj atmaz; yalnızca okur ve taslak hazırlar.",
+  "Gönderim ve kayıt değişikliği sizin onayınızla olur; asistan kendiliğinden mesaj atmaz.",
   "Ölçülmeyen veriyi (menü görüntüleme, ciro, kampanya dönüşümü) tahmin etmez.",
-  "Dil modeli bağlı değildir: tanımlı konuların dışındaki soruları anlamaz, anlamadığında bunu söyler.",
 ];
+
+/** Dil modeli bağlıyken ve bağlı değilken gösterilen sınır satırı. */
+export function modelLimitLine(ready: boolean): string {
+  return ready
+    ? "Dil modeline yalnızca yazdığınız soru ve cevabın toplu sayıları gider; müşteri adı, telefonu ve e-postası gönderilmez. Modelin yazdığı cümlede panelin hesaplamadığı bir sayı varsa cümle kullanılmaz."
+    : "Dil modeli bağlı değildir: tanımlı konuların dışındaki soruları anlamaz, anlamadığında bunu söyler.";
+}
 
 const BACK_VOWELS = "aıouAIOU";
 const VOICELESS = "fstkçşhpFSTKÇŞHP";

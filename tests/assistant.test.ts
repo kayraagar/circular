@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { ForbiddenError } from "@/lib/errors";
 import { createCustomer, setConsent } from "@/modules/customers/service";
 import { ask } from "@/modules/assistant/service";
-import { readQuestion } from "@/modules/assistant/rules";
+import { readPerson, readQuestion } from "@/modules/assistant/rules";
+import { modelReady, usesOnlyGivenNumbers } from "@/modules/assistant/model-api";
 import { makeTenant, resetDb } from "./helpers";
 
 type T = Awaited<ReturnType<typeof makeTenant>>;
@@ -144,6 +145,36 @@ describe("Asistan", () => {
     // Asistan hiçbir kampanya kaydı oluşturmaz
     assert.equal(await db.campaign.count(), 0);
     assert.equal(await db.campaignMessage.count(), 0);
+  });
+
+  test("dil modeli: anahtar yokken ağa çıkılmaz, sayı uydurması reddedilir", () => {
+    assert.equal(modelReady(), false, "testlerde model kapalıdır; cevaplar anahtar kelime modundan gelir");
+    // Modelin cümlesi yalnızca panelin verdiği sayıları içerebilir
+    const facts = "Kapıdan giren kişi: 19 (önceki dönem 0)\nYeni müşteri: 39";
+    assert.equal(usesOnlyGivenNumbers("Son dönemde 19 kişi girdi, 39 yeni müşteri eklendi.", facts), true);
+    assert.equal(usesOnlyGivenNumbers("Geçen aya göre iki katı: 78 kişi.", facts), false, "verilmeyen sayı reddedilir");
+    assert.equal(usesOnlyGivenNumbers("1.234 kişi geldi.", "Toplam: 1234"), true, "binlik ayracı fark yaratmaz");
+  });
+
+  test("kişi soruları: ad çıkarımı ve gerçek ziyaret kaydı", async () => {
+    assert.equal(readPerson("Ali en son ne zaman geldi?"), "Ali");
+    assert.equal(readPerson("0532 400 00 10 kayıtlı mı?"), "05324000010");
+    assert.equal(readPerson("kaç kişi geldi"), null);
+
+    const answer = await ask(A.owner, { question: "Ali en son ne zaman geldi?" }, NOW);
+    assert.equal(answer.topic, "CUSTOMER");
+    assert.match(answer.lead, /Ali Asistan/);
+    assert.match(answer.lead, /1 ziyaret/);
+    const rows = answer.blocks.find((b) => b.kind === "rows");
+    assert.equal(rows?.rows.length, 1);
+    assert.ok(rows?.rows[0].href?.startsWith("/customers/"), "kişi kartına bağlantı verilir");
+
+    const missing = await ask(A.owner, { question: "Zeynep en son ne zaman geldi?" }, NOW);
+    assert.match(missing.lead, /kayıt bulunamadı/, "olmayan kişi için kayıt uydurulmaz");
+
+    // Başka işletmenin müşterisi bu aramada görünmez
+    const other = await ask(B.owner, { question: "Ali en son ne zaman geldi?" }, NOW);
+    assert.match(other.lead, /kayıt bulunamadı/);
   });
 
   test("işletme izolasyonu: başka işletmenin verisi görünmez", async () => {

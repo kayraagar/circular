@@ -15,6 +15,8 @@ const env = {
   NODE_ENV: "test",
   PASS_TOKEN_SECRET: "test-only-pass-token-secret-0123456789abcdef",
   APP_BASE_URL: "http://test.local",
+  // Testler ağa çıkmaz: dil modeli kapalı, asistan anahtar kelime modunda çalışır.
+  GROQ_API_KEY: "",
 };
 
 function run(cmd, args) {
