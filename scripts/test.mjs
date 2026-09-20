@@ -1,13 +1,15 @@
-// Test çalıştırıcı: ayrı bir SQLite dosyasına migration uygular ve node:test ile testleri koşar.
+// Test çalıştırıcı: ayrı bir Postgres veritabanını sıfırlar ve node:test ile testleri koşar.
+// Varsayılan yerel veritabanı: postgresql://<kullanıcı>@localhost:5432/circular_test
+// Başka bir veritabanı için: TEST_DATABASE_URL=... npm test
 import { spawnSync } from "node:child_process";
-import { readdirSync, rmSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const env = {
   ...process.env,
-  DATABASE_URL: "file:./test.db",
+  DATABASE_URL: process.env.TEST_DATABASE_URL ?? `postgresql://${process.env.USER ?? "postgres"}@localhost:5432/circular_test`,
   NODE_ENV: "test",
   PASS_TOKEN_SECRET: "test-only-pass-token-secret-0123456789abcdef",
   APP_BASE_URL: "http://test.local",
@@ -19,7 +21,8 @@ function run(cmd, args) {
   if (r.status !== 0) process.exit(r.status ?? 1);
 }
 
-for (const f of ["test.db", "test.db-journal"]) rmSync(join(root, "prisma", f), { force: true });
+// Şemayı sıfırdan kurar: testler her koşuda temiz veritabanıyla başlar.
+run("npx", ["tsx", "scripts/reset-test-db.ts"]);
 run("npx", ["prisma", "migrate", "deploy"]);
 
 const files = readdirSync(join(root, "tests"))

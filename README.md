@@ -11,11 +11,14 @@ kişiye özel QR ile kapıda giriş / masada avantaj doğrulama.
 
 ## Hızlı başlangıç
 
-Gereksinim: Node.js 20.19+ (22 önerilir). Harici veritabanı gerekmez (SQLite).
+Gereksinim: Node.js 20.19+ (22 önerilir) ve Postgres 15+.
 
 ```bash
+brew install postgresql@17 && brew services start postgresql@17   # macOS
+createdb circular_dev && createdb circular_test
+
 npm install
-cp .env.example .env        # SEED_DEMO_PASSWORD değerini değiştirin
+cp .env.example .env        # DATABASE_URL ve SEED_DEMO_PASSWORD değerlerini düzenleyin
 npm run setup               # migration uygula + demo verisi yükle
 npm run dev                 # http://localhost:3000
 ```
@@ -24,11 +27,32 @@ npm run dev                 # http://localhost:3000
 | --- | --- |
 | `npm run dev` | Geliştirme sunucusu |
 | `npm run build` / `npm start` | Production build / çalıştırma |
-| `npm test` | Servis katmanı testleri (ayrı `prisma/test.db` üzerinde) |
+| `npm test` | Servis katmanı testleri (ayrı `circular_test` veritabanında; `TEST_DATABASE_URL` ile değiştirilebilir) |
 | `npm run typecheck` | TypeScript kontrolü |
 | `npm run db:migrate` | Şema değişikliğinden yeni migration üret |
 | `npm run db:seed` | Demo verisini **sıfırdan** yükle (mevcut veriyi siler) |
 | `npm run db:reset` | Veritabanını sıfırla + migration + seed |
+| `npm run create:owner` | Üretimde ilk işletmeyi ve işletme sahibini oluştur (demo verisi yüklemeden) |
+
+## Yayına alma (Vercel + Neon)
+
+1. **Veritabanı:** Vercel panelinde proje → Storage → Neon (Postgres) eklenir; bağlantı adresi `DATABASE_URL`
+   olarak otomatik tanımlanır. Sunucusuz ortamda bağlantı havuzlu ("pooled") adres kullanılmalıdır.
+2. **Ortam değişkenleri** (Vercel → Settings → Environment Variables):
+   - `DATABASE_URL`, `APP_BASE_URL` (üretim adresi, ör. `https://circular.example`)
+   - `PASS_TOKEN_SECRET`, `CHANNEL_TOKEN_SECRET` (en az 32 karakter; `openssl rand -base64 48`)
+   - `SHOW_DEMO_ACCOUNTS="false"`, `WHATSAPP_MANUAL_CONNECT="false"`, `INSTAGRAM_MANUAL_CONNECT="false"`
+   - Kanal anahtarları hazır oldukça: Meta, Brevo, Instagram (bkz. `.env.example`)
+3. **Dağıtım:** Depo Vercel'e bağlanır. `npm run build` önce `prisma migrate deploy` çalıştırır, yani şema her
+   dağıtımda güncellenir. `postinstall` Prisma istemcisini üretir.
+4. **İlk hesap:** Üretim veritabanı boş başlar; demo verisi yüklenmez. Yerel makineden üretim `DATABASE_URL` ile:
+   `npm run create:owner -- --isletme "..." --mekan "..." --ad "..." --eposta "..." --sifre "..."`
+5. **Webhook adresleri** (kanal kurulduğunda sağlayıcıya girilir): `/api/webhooks/whatsapp`,
+   `/api/webhooks/instagram`, `/api/webhooks/brevo`. Adresler ilgili kanal ekranlarında hazır gösterilir.
+
+Sınırlar: Vercel'in ücretsiz planı yalnızca ticari olmayan kullanım içindir ve zamanlanmış görevleri günde bir kez
+çalıştırır; kampanya kuyruğu isteğin ardından (`after()`) işlenir, yarım kalırsa kampanya sayfasındaki "Gönderime
+devam et" ile sürdürülür. Bellek içi hız sınırları her sunucu kopyası için ayrı çalışır.
 
 ## Demo hesapları
 
@@ -71,7 +95,7 @@ npm run dev                 # http://localhost:3000
 12. **İzolasyon** — bir Orbita müşteri profilinin URL'sini kopyalayın, çıkış yapıp `sahip@lumen.example` ile girin ve URL'yi açın → 404.
     `kapi@orbita.example` ile `/customers` açın → 403. Lumen kullanıcısıyla bir Orbita QR'ını açın → müşteri pass sayfası görünür,
     işletme içi hiçbir bilgi gösterilmez.
-13. **Sayfa yenileme** — tüm kayıtlar SQLite'ta kalıcıdır.
+13. **Sayfa yenileme** — tüm kayıtlar veritabanında kalıcıdır.
 
 ---
 
@@ -80,7 +104,7 @@ npm run dev                 # http://localhost:3000
 | Katman | Seçim | Gerekçe |
 | --- | --- | --- |
 | Uygulama | Next.js 16 (App Router), React 19, TypeScript | Panel ve sonraki fazdaki public menü/üyelik sayfaları tek kod tabanında; Server Components + Server Actions ile yetki kontrolü doğal olarak sunucuda. Microservice yok. |
-| Veri | Prisma 6 + SQLite | Migration altyapısı, tip güvenliği; sıfır kurulum. Şema Postgres'e taşınabilir (native enum yok, composite FK'ler standart SQL). |
+| Veri | Prisma 6 + Postgres | Migration altyapısı ve tip güvenliği; sunucusuz dağıtımda (Vercel) dosya tabanlı veritabanı çalışmadığı için Postgres. Şemada native enum yok, composite FK'ler standart SQL. |
 | Stil | Tailwind CSS 4 | Tasarım token'ları `globals.css` içinde `@theme` ile. |
 | Doğrulama | zod 4 | Tüm girdiler servis katmanında doğrulanır. |
 | Telefon | libphonenumber-js | TR varsayılanlı E.164 normalizasyonu. |
