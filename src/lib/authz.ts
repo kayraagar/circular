@@ -16,6 +16,8 @@ const PERMISSIONS = {
   "events.manage": ["OWNER_ADMIN", "CRM_MANAGER"],
   "guests.manage": ["OWNER_ADMIN", "CRM_MANAGER"],
   "activity.view": ["OWNER_ADMIN", "CRM_MANAGER"],
+  // Raporlar: dönemsel giriş, kayıt, kazanım ve kampanya sonuçları
+  "reports.view": ["OWNER_ADMIN", "CRM_MANAGER"],
   "settings.view": ["OWNER_ADMIN"],
   // Hazırlanıyor modülleri (yalnızca bilgi sayfaları)
   "modules.preview": ["OWNER_ADMIN", "CRM_MANAGER"],

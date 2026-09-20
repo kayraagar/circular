@@ -131,6 +131,16 @@ Kalan adımlar: yapay zekâ kitle önerileri ve tetikleyicili otomatik kampanyal
 - Entegrasyon yoksa `DemoAdapter` — arayüzde "Demo gönderim, mesaj iletilmedi" etiketi zorunlu.
 - İş kuyruğu gerekir (ör. Postgres tabanlı kuyruk); tek süreçte `setTimeout` kullanılmamalı.
 
+## ✔ Raporlar — tamamlandı
+
+`/reports`: 7/30/90 günlük dönem ve mekan kapsamıyla, yalnızca ölçülen veriler. Kapı girişleri (kişi), yeni müşteri, etkinlik
+kaydı ve avantaj kullanımı önceki dönemle karşılaştırılır; günlük seri, saat/gün yoğunluğu (Istanbul), etkinlik bazında
+davetli → gerçek giriş, PR katkısı, kazanım kaynağı, guest kanalı, izin durumu ve kanal bazında kampanya sonuçları.
+Grafikler bağımlılıksız SVG.
+
+Açık kalanlar: dışa aktarma (CSV/PDF), kampanya dönüşümü (kampanya sonrası ziyaret ilişkisi), menü görüntüleme ölçümü,
+özel tarih aralığı ve rapor e-postası.
+
 ## Faz 3 — WhatsApp Club
 
 - Topluluk/grup yönetimi ile birebir kampanya gönderimi **ayrı** yetenekler.

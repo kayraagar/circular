@@ -19,7 +19,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/menu", label: "QR Menü", icon: "qr", permission: "menu.manage", status: "ready" },
   { href: "/campaigns", label: "Kampanyalar", icon: "send", permission: "campaigns.manage", status: "ready" },
   { href: "/assistant", label: "AI Asistan", icon: "orbit", permission: "modules.preview", status: "preparing" },
-  { href: "/reports", label: "Raporlar", icon: "chart", permission: "modules.preview", status: "preparing" },
+  { href: "/reports", label: "Raporlar", icon: "chart", permission: "reports.view", status: "ready" },
   { href: "/settings", label: "Ayarlar", icon: "sliders", permission: "settings.view", status: "ready" },
 ];
 

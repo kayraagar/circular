@@ -308,11 +308,17 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   yalnızca bu kelimeyse" veya "mesajda bu kelime geçerse", yanıt metni `{menu}` / `{kayit}` bağlantılarıyla. Aynı mesaja bir
   kez, aynı kişiye aynı kural 10 dakikada bir yanıt verilir; kişinin Instagram kimliği düz saklanmaz. Bildirimler
   `/api/webhooks/instagram` (imzalı).
+- **Raporlar** (soldaki **Raporlar** → `/reports`; işletme sahibi ve CRM yöneticisi): 7/30/90 günlük dönem, seçili mekana göre.
+  Kapıdan giren kişi, yeni müşteri, etkinlik kaydı ve avantaj kullanımı için önceki dönemle karşılaştırma; günlük giriş eğrisi,
+  saate ve haftanın gününe göre yoğunluk (Istanbul saatiyle), biten etkinliklerde davetli → gerçek giriş oranı, PR katkısı,
+  yeni müşteri kaynağı ve guest kanalı dağılımı, iletişim izni ve avantaj kullanımı, kanal bazında kampanya sonuçları.
+  Grafikler harici kütüphane olmadan SVG ile çizilir. Ölçülmeyenler (menü görüntüleme, ciro, kampanya dönüşümü) tahmin edilmez.
 - İki izole demo işletme, 8 demo kullanıcı, demo check-in ve avantaj kullanımları
 
 ### Sonraki fazlara kalanlar
 PR davet linki tıklama ölçümü · public üyelik/etkinlik sayfaları · WhatsApp için İYS entegratör bağlantısı ·
-zamanlanmış/otomatik kampanyalar · yapay zekâ kitle önerileri · WhatsApp Club · AI asistan · raporlar · ekip/mekan yönetimi · platform konsolu.
+zamanlanmış/otomatik kampanyalar · yapay zekâ kitle önerileri · WhatsApp Club · AI asistan · rapor dışa aktarma ·
+ekip/mekan yönetimi · platform konsolu.
 Ayrıntılar ve açık kararlar: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ### Bilinen eksikler
