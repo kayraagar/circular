@@ -314,9 +314,14 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   katkısı, kitle önerisi, iletişim izinleri, kampanya sonuçları, avantajlar ve kanal kurulum durumu. Ayrıca panel rehberi:
   guest ekleme, kampanya gönderme, QR menü, kapıda giriş, avantaj, PR daveti gibi işleri adım adım anlatıp ilgili ekrana
   bağlar. Kitleye uygun **taslak mesaj** üretir (şablon metin; işletme adı ve `{{ad}}` yerleştirilir).
+  **İşlem de yapar:** "Ayşe Yılmaz'ı 0532 111 22 33 ile müşteri olarak ekle", "Ada'ya vip etiketi ekle", "Ada'nın SMS iznini
+  kaydet (kayıt formunda onayladı)", "cumartesi 23:00 için Neon Gecesi oluştur", "Cuma Gecesi'ne Mert'i 2 kişi ekle" gibi
+  istekleri mevcut servis fonksiyonlarını **kullanıcının kendi yetkisiyle** çağırarak gerçekleştirir; doğrulama, işletme
+  kapsamı ve aktivite kaydı olduğu gibi işler. Eksik bilgi varsa değer uydurmaz, sorar. Silme ve arşivleme aracı yoktur.
+  Gerçek kişilere mesaj gönderimi (SMS / e-posta kampanyası) önce özet ve kaç kişiye gideceğiyle onay kutusu açar.
   Gündelik sohbet de eder; sohbet cevapları "panel verisi kullanılmadı" etiketiyle gösterilir. Ciro, menü görüntüleme ve
   kampanya dönüşümü sorulursa bunların ölçülmediğini söyler, rakam vermez.
-  Asistan hiçbir kaydı değiştirmez, mesaj göndermez; konuşma geçmişi sunucuya kaydedilmez.
+  Konuşma geçmişi sunucuya kaydedilmez.
   **Dil modeli (Groq, `GROQ_API_KEY`):** anahtar kelime eşleşmesi güçlüyse model çağrılmaz; zayıfsa soru modele
   sınıflandırtılır ve cevap cümlesini model yazar. Modele yalnızca yazdığınız soru ve cevabın toplu sayıları gider —
   müşteri adı, telefonu, e-postası gönderilmez; kişi ve PR cevaplarında model hiç devreye girmez. Modelin cümlesinde
@@ -331,7 +336,7 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
 
 ### Sonraki fazlara kalanlar
 PR davet linki tıklama ölçümü · public üyelik/etkinlik sayfaları · WhatsApp için İYS entegratör bağlantısı ·
-zamanlanmış/otomatik kampanyalar · asistandan onaylı gönderim ve kayıt değişikliği · WhatsApp Club · rapor dışa aktarma ·
+zamanlanmış/otomatik kampanyalar · WhatsApp Club · rapor dışa aktarma ·
 ekip/mekan yönetimi · platform konsolu.
 Ayrıntılar ve açık kararlar: [docs/ROADMAP.md](docs/ROADMAP.md).
 

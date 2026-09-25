@@ -160,9 +160,16 @@ konularında model hiç çağrılmaz ve bu cevaplar konuşma geçmişinden de ay
 hesapladığı değerlerle karşılaştırılır, uyuşmazsa cümle atılır. Anahtar yoksa asistan anahtar kelime moduyla çalışır.
 Ölçülmeyen veriler (ciro, menü görüntüleme, kampanya dönüşümü) için ayrı bir cevap verilir; rakam üretilmez.
 
+**İşlem yapabilir (agentic):** model, tanımlı araçları çağırır; araçlar mevcut servis fonksiyonlarını kullanıcının
+`ServiceContext`'i ile çalıştırır, böylece yetki, doğrulama, işletme/mekan kapsamı ve aktivite kaydı değişmeden işler.
+Araçlar: müşteri ekleme, etiket ekleme, iletişim izni kaydetme, etkinlik oluşturma, misafir ekleme ve (onay kutusuyla)
+SMS/e-posta kampanyası gönderme. Silme ve arşivleme aracı bilerek yoktur. Eksik bilgide araç çağrılmaz, kullanıcıya sorulur.
+Rol yetkisi olmayan araç modele hiç tanıtılmaz.
+
 Açık kalanlar:
-- **Asistandan onaylı işlemler:** kitleyi ve metni hazırlayıp asistan içinde tek tuşla gönderim; müşteri ekleme,
-  etiketleme, izin kaydetme, etkinliğe guest ekleme. Her işlem kullanıcı onayıyla ve mevcut servis kurallarıyla yapılmalı.
+- Aktivite kaydında işlemin asistan üzerinden yapıldığının işaretlenmesi (şu an kullanıcı adına normal kayıt düşer).
+- WhatsApp kampanyası gönderimi (Meta onaylı şablon seçimi gerekir; şimdilik kampanya ekranına yönlendirilir).
+- Araç sonrası "geri al" kısayolu (şu an ilgili ekrandan yapılır).
 - KVKK aydınlatma metni: işletmeye, sorularının dil modeli sağlayıcısına gittiğinin açıkça bildirilmesi.
 - Konuşma geçmişinin kaydı (şimdilik yalnızca sekmede tutulur) ve asistan kullanımının denetim kaydı.
 - Özel tarih aralığı ("15 Eylül – 30 Eylül") ve mekan adı geçen sorular ("Orbita Kulüp'te kaç kişi geldi?").

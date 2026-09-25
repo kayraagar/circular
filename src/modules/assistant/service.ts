@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { assertCan, can, venueScope, type ServiceContext } from "@/lib/authz";
-import { formatRelative, formatShortDate } from "@/lib/datetime";
+import { formatRelative, formatShortDate, localDayKey } from "@/lib/datetime";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { formatPhone, fullName } from "@/lib/normalize";
 import { CHANNELS, CHANNEL_LABELS, labelOf } from "@/lib/domain";
@@ -15,7 +15,8 @@ import { foldText } from "@/lib/normalize";
 import { customerSearchWhere } from "@/modules/customers/service";
 import { getPrOverview } from "@/modules/pr/service";
 import { getReports, type Delta, type ReportData } from "@/modules/reports/service";
-import { chatReply, classifyQuestion, modelReady, phraseLead, type HistoryTurn } from "./model-api";
+import { chatReply, classifyQuestion, modelReady, phraseLead, planAction, type HistoryTurn } from "./model-api";
+import { describeAction, toolByName, toolsFor, type AssistantTool, type ToolResult } from "./tools";
 import {
   fmt,
   GUIDES,
@@ -606,7 +607,7 @@ function capabilitiesAnswer(): AssistantAnswer {
   return {
     topic: "CAPABILITIES",
     title: "Neler yapabilirim",
-    lead: "Verinizi okuyup gerçek sayılarla cevap veririm; panelde bir işi nasıl yapacağınızı adım adım anlatırım.",
+    lead: "Verinizi okuyup gerçek sayılarla cevap veririm, panelde iş yaparım ve bir işi nasıl yapacağınızı adım adım anlatırım.",
     scope: null,
     blocks: [
       {
@@ -619,12 +620,121 @@ function capabilitiesAnswer(): AssistantAnswer {
           "Kampanya sonuçları ve iletişim izinleri.",
           "Mesaj taslağı: kitleye uygun hazır şablon metin.",
           "Panel rehberi: guest ekleme, kampanya gönderme, QR menü, kapı girişi, avantaj, PR daveti.",
+          "İşlem yapma: müşteri ekleme, etiketleme, iletişim izni kaydetme, etkinlik oluşturma, misafir listesine kişi ekleme.",
+          "Kampanya gönderimi: kitleyi ve metni hazırlarım, kaç kişiye gideceğini gösteririm, onaylayınca gönderirim.",
         ],
       },
-      note("Kampanya göndermem, kayıt değiştirmem. Ölçülmeyen veriyi (menü görüntüleme, ciro, kampanya dönüşümü) tahmin etmem."),
+      note("Kayıt silmem ve arşivlemem; böyle bir aracım yok. Ölçülmeyen veriyi (menü görüntüleme, ciro, kampanya dönüşümü) tahmin etmem."),
     ],
     followUps: STARTER_QUESTIONS.slice(0, 3),
   };
+}
+
+/** Araç sonucunu cevaba çevirir. */
+function resultAnswer(tool: AssistantTool, result: ToolResult): AssistantAnswer {
+  if (!result.ok) {
+    return {
+      topic: "ACTION",
+      title: "İşlem yapılmadı",
+      lead: result.message,
+      scope: null,
+      blocks: result.options ? [{ kind: "bullets", items: result.options }] : [],
+      followUps: [],
+    };
+  }
+  return {
+    topic: "ACTION",
+    title: "",
+    lead: result.title,
+    scope: null,
+    blocks: [
+      { kind: "result", ok: true, title: result.title, detail: result.detail },
+      ...(result.links ? [links(result.links)] : []),
+    ],
+    followUps: [],
+  };
+}
+
+/**
+ * İşlem isteği: model uygun aracı seçer, araç mevcut servisi kullanıcının yetkisiyle çağırır.
+ * Geri alınamayan işlemler (gerçek kişilere mesaj gönderimi) önce onay kutusu döner.
+ */
+async function actionAnswer(ctx: ServiceContext, question: string, history: HistoryTurn[], now: Date): Promise<AssistantAnswer> {
+  const tools = toolsFor(ctx);
+  if (!modelReady() || tools.length === 0) {
+    return {
+      topic: "ACTION",
+      title: "Bunu paneldan yapabilirsiniz",
+      lead: modelReady() ? "Bu işlem için yetkiniz yok." : "İşlem yapabilmem için dil modelinin bağlı olması gerekiyor. Şimdilik ilgili ekrandan yapabilirsiniz.",
+      scope: null,
+      blocks: [
+        links([
+          { href: "/customers/new", label: "Yeni müşteri" },
+          { href: "/events/new", label: "Yeni etkinlik" },
+          { href: "/campaigns/new", label: "Yeni kampanya" },
+        ]),
+      ],
+      followUps: [],
+    };
+  }
+
+  const plan = await planAction(question, history, tools.map((t) => ({ name: t.name, description: t.description, parameters: t.parameters })), localDayKey(now));
+  if (!plan) {
+    return {
+      topic: "ACTION",
+      title: "Şu an yapamadım",
+      lead: "İsteğinizi işleme çevirirken modele ulaşamadım. Birazdan tekrar deneyebilir veya işlemi ilgili ekrandan yapabilirsiniz.",
+      scope: null,
+      blocks: [
+        links([
+          { href: "/customers/new", label: "Yeni müşteri" },
+          { href: "/events/new", label: "Yeni etkinlik" },
+          { href: "/campaigns/new", label: "Yeni kampanya" },
+        ]),
+      ],
+      followUps: [],
+    };
+  }
+  if (plan.kind === "ask") {
+    // Model eksik bilgiyi soruyor: uydurma değer üretmek yerine kullanıcıya dönülür.
+    return { topic: "ACTION", title: "", lead: plan.text, scope: null, blocks: [], followUps: [] };
+  }
+
+  const tool = toolByName(plan.name);
+  if (!tool || !can(ctx.role, tool.permission)) {
+    return {
+      topic: "ACTION",
+      title: "İşlem yapılmadı",
+      lead: tool ? "Bu işlem için yetkiniz yok." : "Bu isteği yapabileceğim bir işleme çeviremedim.",
+      scope: null,
+      blocks: [],
+      followUps: [],
+    };
+  }
+
+  if (tool.confirm) {
+    const rows = await describeAction(ctx, tool, plan.args, now);
+    return {
+      topic: "ACTION",
+      title: "Onayınızı bekliyorum",
+      lead: "Bu işlem gerçek kişilere mesaj gönderir ve geri alınamaz. Özeti kontrol edip onaylayın.",
+      scope: null,
+      blocks: [
+        {
+          kind: "confirm",
+          tool: tool.name,
+          args: plan.args,
+          label: "Onaylıyorum, gönder",
+          rows,
+          warning: "Gönderilen mesaj geri alınamaz; kanal ücretlendirmesi işler.",
+        },
+        ...(typeof plan.args.metin === "string" ? [{ kind: "draft" as const, channel: (String(plan.args.kanal).toUpperCase() === "EMAIL" ? "EMAIL" : "SMS") as CampaignChannel, body: String(plan.args.metin), hint: "Metni değiştirmek isterseniz kampanya ekranından düzenleyin." }] : []),
+      ],
+      followUps: [],
+    };
+  }
+
+  return resultAnswer(tool, await tool.run(ctx, plan.args, now));
 }
 
 /**
@@ -782,6 +892,7 @@ async function answerFor(ctx: ServiceContext, match: QuestionMatch, input: AskIn
   if (match.topic === "HOWTO") return howToAnswer(match);
   if (match.topic === "CAPABILITIES") return capabilitiesAnswer();
   if (match.topic === "UNMEASURED") return unmeasuredAnswer();
+  if (match.topic === "ACTION") return actionAnswer(ctx, question, history, now);
   // Sohbet ve anlaşılmayan soru: dil modeli varsa konuşur, yoksa dürüstçe anlamadığını söyler.
   if (match.topic === "CHAT") return modelReady() ? chatAnswer(question, history) : greetingAnswer(question);
   if (match.topic === "UNKNOWN") return modelReady() ? chatAnswer(question, history) : unknownAnswer();

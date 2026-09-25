@@ -26,6 +26,7 @@ export const ASSISTANT_TOPICS = [
   "CHANNELS",
   "CUSTOMER",
   "CHAT",
+  "ACTION",
   "UNMEASURED",
   "HOWTO",
   "CAPABILITIES",
@@ -49,6 +50,11 @@ const TOPIC_KEYWORDS: Record<Exclude<AssistantTopic, "UNKNOWN">, readonly string
   CHANNELS: ["kanal durumu", "bagli mi", "whatsapp durumu", "sms durumu", "eposta durumu", "instagram durumu", "kurulum durumu", "hazir mi"],
   CUSTOMER: ["en son ne zaman", "kayitli mi", "musteri ara", "numara kayitli", "kim geldi", "bu kisi", "ne zaman geldi"],
   UNMEASURED: ["ciro", "hasilat", "gelir", "kazanc", "kar", "satis", "adisyon", "hesap tutari", "menu goruntule", "donusum", "roi", "kisi basi harcama"],
+  ACTION: [
+    "ekle", "olustur", "kaydet", "gonder", "ayarla", "isaretle",
+    "musteri ekle", "kisi ekle", "etiket ekle", "izin kaydet", "etkinlik olustur", "gece olustur",
+    "guest ekle", "misafir ekle", "davetli ekle", "kampanya gonder", "sms at", "mesaj at", "mesaj gonder",
+  ],
   CHAT: ["merhaba", "selam", "gunaydin", "iyi aksamlar", "iyi geceler", "nasilsin", "tesekkur", "sagol", "naber", "gorusuruz"],
   HOWTO: [],
   CAPABILITIES: ["yapabil", "ne yapabil", "neler yapabil", "ne sorabilirim", "nasil calisirsin", "kimsin", "yardim"],
@@ -408,7 +414,11 @@ export type AnswerBlock =
   | { kind: "bullets"; items: string[] }
   | { kind: "draft"; channel: CampaignChannel; body: string; hint: string }
   | { kind: "note"; tone: "info" | "caution"; text: string }
-  | { kind: "links"; links: { href: string; label: string }[] };
+  | { kind: "links"; links: { href: string; label: string }[] }
+  /** Yapılan işlemin sonucu */
+  | { kind: "result"; ok: boolean; title: string; detail?: string }
+  /** Geri alınamayan işlem için onay kutusu */
+  | { kind: "confirm"; tool: string; args: Record<string, unknown>; label: string; rows: { label: string; value: string }[]; warning: string };
 
 export type AssistantAnswer = {
   topic: AssistantTopic;
@@ -424,7 +434,7 @@ export type AssistantAnswer = {
 // ─────────────────────────────────────────────── Arayüz metinleri
 
 export const ASSISTANT_INTRO =
-  "Verinizden gerçek sayılarla cevap veririm: girişler, müşteriler, etkinlikler, PR ve kampanyalar. Panelde bir işi nasıl yapacağınızı da anlatırım.";
+  "Verinizden gerçek sayılarla cevap veririm ve panelde iş yaparım: müşteri ekleme, etiketleme, izin kaydetme, misafir ve etkinlik oluşturma. Gönderim gerektiren işlerde önce onayınızı isterim.";
 
 /** Başlangıç önerileri — sohbet boşken ve anlaşılmayan soruda gösterilir. */
 export const STARTER_QUESTIONS = [
@@ -432,8 +442,8 @@ export const STARTER_QUESTIONS = [
   "En yoğun gün ve saat hangisi?",
   "Kimlere mesaj atmalıyım?",
   "Etkinlikler nasıl gitti?",
-  "Kaç kişiye mesaj atabilirim?",
-  "Kampanya nasıl gönderilir?",
+  "Ayşe Yılmaz'ı 0532 111 22 33 ile müşteri olarak ekle",
+  "Cuma için etkinlik oluştur",
 ];
 
 /** Sayfada gösterilen yetenek listesi — her satırın karşılığı gerçek bir cevap üreticisidir. */
@@ -447,12 +457,16 @@ export const ASSISTANT_SKILLS: { title: string; example: string }[] = [
   { title: "Kampanya sonuçları", example: "Kampanyalar nasıl gitti?" },
   { title: "Mesaj taslağı", example: "Gelmeyenlere mesaj taslağı hazırla" },
   { title: "Panel rehberi", example: "Kampanya nasıl gönderilir?" },
+  { title: "Müşteri ekleme", example: "Ayşe Yılmaz'ı 0532 111 22 33 ile ekle" },
+  { title: "Etiket ve izin", example: "Ada Kaya'ya vip etiketi ekle" },
+  { title: "Etkinlik ve misafir", example: "Cuma Gecesi'ne Mert Ak'ı 2 kişi ekle" },
 ];
 
 export const ASSISTANT_LIMITS = [
-  "Yalnızca görmeye yetkili olduğunuz işletme ve mekan verisini okur.",
-  "Gönderim ve kayıt değişikliği sizin onayınızla olur; asistan kendiliğinden mesaj atmaz.",
-  "Ölçülmeyen veriyi (menü görüntüleme, ciro, kampanya dönüşümü) tahmin etmez.",
+  "Yalnızca görmeye yetkili olduğunuz işletme ve mekan verisini okur; işlemleri de kendi yetkinizle yapar.",
+  "Kayıt işlemleri (müşteri, etiket, izin, misafir, etkinlik) doğrudan yapılır ve aktivite geçmişine yazılır.",
+  "Gerçek kişilere mesaj gönderimi her zaman onayınızla olur. Silme ve arşivleme aracı yoktur.",
+  "Eksik bilgi varsa değer uydurmaz, sorar. Ölçülmeyen veriyi (menü görüntüleme, ciro, kampanya dönüşümü) tahmin etmez.",
 ];
 
 /** Dil modeli bağlıyken ve bağlı değilken gösterilen sınır satırı. */

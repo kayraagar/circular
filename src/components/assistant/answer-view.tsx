@@ -5,6 +5,7 @@ import { useState } from "react";
 import { CAMPAIGN_CHANNEL_LABELS } from "@/modules/campaigns/rules";
 import type { AnswerBlock, AssistantAnswer } from "@/modules/assistant/rules";
 import { IconAlert, IconArrowRight, IconCheck } from "@/components/ui/icons";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "@/components/ui/toaster";
 
 /**
@@ -136,6 +137,74 @@ function Draft({ block }: { block: Extract<AnswerBlock, { kind: "draft" }> }) {
   );
 }
 
+function Result({ ok, title, detail }: { ok: boolean; title: string; detail?: string }) {
+  return (
+    <div className={`flex gap-3 rounded-field border p-3.5 ${ok ? "border-positive/30 bg-positive/[0.05]" : "border-negative/30 bg-negative/[0.05]"}`}>
+      <span className={`mt-0.5 shrink-0 ${ok ? "text-positive" : "text-negative"}`}>{ok ? <IconCheck size={16} /> : <IconAlert size={16} />}</span>
+      <span className="min-w-0">
+        <span className="block text-sm text-fg">{title}</span>
+        {detail && <span className="mt-1 block text-[12px] leading-relaxed text-muted">{detail}</span>}
+      </span>
+    </div>
+  );
+}
+
+function Confirm({
+  block,
+  onRun,
+}: {
+  block: Extract<AnswerBlock, { kind: "confirm" }>;
+  onRun?: (tool: string, args: Record<string, unknown>) => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  if (done) return null;
+  return (
+    <div className="rounded-field border border-caution/30 bg-caution/[0.05] p-3.5">
+      {block.rows.length > 0 && (
+        <dl className="space-y-1.5">
+          {block.rows.map((row) => (
+            <div key={row.label} className="flex items-baseline justify-between gap-3 text-[13px]">
+              <dt className="text-muted">{row.label}</dt>
+              <dd className="text-fg" data-numeric>
+                {row.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <p className="mt-3 flex gap-2 text-[12px] leading-relaxed text-caution">
+        <IconAlert size={13} className="mt-[3px] shrink-0" />
+        <span>{block.warning}</span>
+      </p>
+      <div className="mt-3.5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={busy || !onRun}
+          onClick={async () => {
+            if (!onRun) return;
+            setBusy(true);
+            await onRun(block.tool, block.args);
+            setDone(true);
+          }}
+          className="inline-flex h-9 items-center gap-2 rounded-field bg-fg px-4 text-[13px] font-medium text-bg transition-opacity hover:bg-white disabled:pointer-events-none disabled:opacity-50"
+        >
+          {busy && <Spinner size={13} />}
+          {busy ? "Gönderiliyor…" : block.label}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setDone(true)}
+          className="inline-flex h-9 items-center rounded-field border border-line px-4 text-[13px] text-muted transition-colors hover:border-line-strong hover:text-fg"
+        >
+          Vazgeç
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Note({ tone, text }: { tone: "info" | "caution"; text: string }) {
   return (
     <p className={`flex gap-2 text-[12px] leading-relaxed ${tone === "caution" ? "text-caution" : "text-muted"}`}>
@@ -166,7 +235,7 @@ function Links({ items }: { items: { href: string; label: string }[] }) {
   );
 }
 
-function Block({ block }: { block: AnswerBlock }) {
+function Block({ block, onRun }: { block: AnswerBlock; onRun?: (tool: string, args: Record<string, unknown>) => Promise<void> }) {
   switch (block.kind) {
     case "stats":
       return <Stats items={block.items} />;
@@ -182,10 +251,22 @@ function Block({ block }: { block: AnswerBlock }) {
       return <Note tone={block.tone} text={block.text} />;
     case "links":
       return <Links items={block.links} />;
+    case "result":
+      return <Result ok={block.ok} title={block.title} detail={block.detail} />;
+    case "confirm":
+      return <Confirm block={block} onRun={onRun} />;
   }
 }
 
-export function AnswerView({ answer, onFollowUp }: { answer: AssistantAnswer; onFollowUp?: (question: string) => void }) {
+export function AnswerView({
+  answer,
+  onFollowUp,
+  onRun,
+}: {
+  answer: AssistantAnswer;
+  onFollowUp?: (question: string) => void;
+  onRun?: (tool: string, args: Record<string, unknown>) => Promise<void>;
+}) {
   return (
     <div className="space-y-3.5">
       <div>
@@ -194,7 +275,7 @@ export function AnswerView({ answer, onFollowUp }: { answer: AssistantAnswer; on
         <p className={`text-sm leading-relaxed whitespace-pre-wrap ${answer.title ? "mt-1 text-muted" : "text-fg"}`}>{answer.lead}</p>
       </div>
       {answer.blocks.map((block, i) => (
-        <Block key={i} block={block} />
+        <Block key={i} block={block} onRun={onRun} />
       ))}
       {onFollowUp && answer.followUps.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-0.5">

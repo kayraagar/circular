@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { askAssistantAction } from "@/modules/assistant/actions";
+import { askAssistantAction, runAssistantToolAction } from "@/modules/assistant/actions";
 import { ASSISTANT_INTRO, MAX_HISTORY_TURNS, STARTER_QUESTIONS, type AssistantAnswer, type ChatTurn } from "@/modules/assistant/rules";
 import { IconArrowRight } from "@/components/ui/icons";
 import { Spinner } from "@/components/ui/spinner";
@@ -52,6 +52,32 @@ export function AssistantChat({ scope, compact = false }: { scope: ChatScope; co
     [loading, messages, scope.venueId, scope.venueLabel],
   );
 
+  // Onay kutusundaki işlemi çalıştırır ve sonucu konuşmaya ekler.
+  const runTool = useCallback(async (tool: string, args: Record<string, unknown>) => {
+    const result = await runAssistantToolAction({ tool, args });
+    const id = Date.now();
+    setMessages((prev) => [
+      ...prev,
+      {
+        id,
+        role: "assistant",
+        answer: {
+          topic: "ACTION",
+          title: result.ok ? "" : "İşlem yapılmadı",
+          lead: result.ok ? result.title : result.message,
+          scope: null,
+          blocks: result.ok
+            ? [
+                { kind: "result", ok: true, title: result.title, detail: result.detail },
+                ...(result.links ? [{ kind: "links" as const, links: result.links }] : []),
+              ]
+            : [],
+          followUps: [],
+        },
+      },
+    ]);
+  }, []);
+
   return (
     <div className={`flex min-h-0 flex-col ${compact ? "h-full" : "h-[min(72vh,760px)]"}`}>
       <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-5" role="log" aria-live="polite" aria-label="Asistan konuşması">
@@ -86,7 +112,7 @@ export function AssistantChat({ scope, compact = false }: { scope: ChatScope; co
               </p>
             ) : (
               <div key={message.id} className="animate-enter">
-                <AnswerView answer={message.answer} onFollowUp={submit} />
+                <AnswerView answer={message.answer} onFollowUp={submit} onRun={runTool} />
               </div>
             ),
           )}

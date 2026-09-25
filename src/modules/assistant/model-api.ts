@@ -37,7 +37,22 @@ type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
  * başlayamadan kesilir (Groq: json_validate_failed). Bu yüzden bütçe geniş,
  * düşünme derinliği düşük tutulur.
  */
-async function chat(messages: ChatMessage[], opts: { schema?: object; maxTokens: number }): Promise<string | null> {
+type ModelMessage = { content?: string | null; tool_calls?: { function?: { name?: string; arguments?: string } }[] };
+
+/** 429'da sağlayıcının önerdiği bekleme süresi (ms), makul bir üst sınırla. */
+function retryDelayMs(response: Response, body: string): number {
+  const header = Number(response.headers.get("retry-after"));
+  if (Number.isFinite(header) && header > 0) return Math.min(header * 1000, 5000);
+  const match = /try again in ([\d.]+)s/i.exec(body);
+  const seconds = match ? Number(match[1]) : NaN;
+  return Math.min(Number.isFinite(seconds) ? seconds * 1000 + 250 : 1500, 5000);
+}
+
+async function chatRaw(
+  messages: ChatMessage[],
+  opts: { schema?: object; maxTokens: number; tools?: object[] },
+  retry = true,
+): Promise<ModelMessage | null> {
   const config = modelConfig();
   if (!config.apiKey) return null;
   const controller = new AbortController();
@@ -55,21 +70,33 @@ async function chat(messages: ChatMessage[], opts: { schema?: object; maxTokens:
         ...(opts.schema
           ? { response_format: { type: "json_schema", json_schema: { name: "asistan_niyet", strict: true, schema: opts.schema } } }
           : {}),
+        ...(opts.tools ? { tools: opts.tools, tool_choice: "auto" } : {}),
       }),
       signal: controller.signal,
     });
     if (!response.ok) {
-      console.error("[assistant] model hatası", response.status, (await response.text()).slice(0, 300));
+      const body = await response.text();
+      // Ücretsiz katmanın dakikalık token sınırı: kısa bir bekleyişten sonra bir kez daha denenir.
+      if (response.status === 429 && retry) {
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs(response, body)));
+        return chatRaw(messages, opts, false);
+      }
+      console.error("[assistant] model hatası", response.status, body.slice(0, 300));
       return null;
     }
-    const data = (await response.json()) as { choices?: { message?: { content?: string } }[] };
-    return data.choices?.[0]?.message?.content?.trim() || null;
+    const data = (await response.json()) as { choices?: { message?: ModelMessage }[] };
+    return data.choices?.[0]?.message ?? null;
   } catch (error) {
     if ((error as Error).name !== "AbortError") console.error("[assistant] modele ulaşılamadı", error);
     return null;
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function chat(messages: ChatMessage[], opts: { schema?: object; maxTokens: number }): Promise<string | null> {
+  const message = await chatRaw(messages, opts);
+  return message?.content?.trim() || null;
 }
 
 // ─────────────────────────────────────────────── Niyet çıkarımı
@@ -118,7 +145,11 @@ Konular:
 - CUSTOMER: belirli bir kişi soruluyor ("Ali en son ne zaman geldi", "bu numara kayıtlı mı").
 - UNMEASURED: ciro, satış tutarı, adisyon, kâr, kişi başı harcama, menü görüntüleme sayısı veya kampanya satış dönüşümü soruluyor. Bu veriler panelde ölçülmez.
 - CHAT: panel verisiyle ilgisi olmayan gündelik sohbet, selamlaşma, teşekkür, genel bilgi sorusu veya fikir sorma.
-- HOWTO: panelde bir işin nasıl yapılacağı soruluyor. Bu durumda guide alanını doldur.
+- ACTION: kullanıcı bir işin YAPILMASINI istiyor. Emir kipi belirtisidir: "ekle", "oluştur", "kaydet", "gönder", "işaretle".
+  Örnekler: "Ayşe'yi müşteri olarak ekle", "Ada'ya vip etiketi ekle", "Ada'nın SMS iznini kaydet",
+  "cumartesi için etkinlik oluştur", "Cuma Gecesi'ne Mert'i ekle", "gelmeyenlere SMS at".
+- HOWTO: panelde bir işin NASIL yapılacağı soruluyor ("nasıl eklerim", "nereden oluşturulur"). Bu durumda guide alanını doldur.
+  Kullanıcı işi kendisi yapmak için yol soruyorsa HOWTO, işi senin yapmanı istiyorsa ACTION.
 - CAPABILITIES: asistanın ne yapabildiği soruluyor.
 - UNKNOWN: soru anlaşılmıyor veya boş. Sohbet niteliğindeyse UNKNOWN değil CHAT kullan.
 
@@ -214,6 +245,8 @@ Kurallar:
 - Elinde olmayan bir şey sorulduysa sayı uydurma.
 - Abartılı pazarlama dili kullanma; sakin ve net yaz.
 - Tavsiye verme, yorum ekleme; sorulanı cevapla.
+- Bu bir OKUMA cevabıdır: hiçbir şey yapılmadı. "Kaydedildi", "gönderildi", "eklendi", "oluşturuldu" gibi
+  bir işlem yapıldığı izlenimi veren ifadeler KULLANMA; yalnızca mevcut durumu anlat.
 - Madde işareti, başlık veya emoji kullanma.`;
 
 /**
@@ -238,4 +271,52 @@ export async function phraseLead(input: { question: string; facts: string }): Pr
     return null;
   }
   return text;
+}
+
+// ─────────────────────────────────────────────── İşlem planlama (araç çağrısı)
+
+export type ToolSpec = { name: string; description: string; parameters: Record<string, unknown> };
+export type ActionPlan = { kind: "tool"; name: string; args: Record<string, unknown> } | { kind: "ask"; text: string };
+
+const ACTION_SYSTEM = (today: string) => `Sen Circular adlı restoran/gece kulübü CRM panelinin asistanısın ve panelde işlem yapabilirsin.
+Bugünün tarihi: ${today} (Europe/Istanbul).
+
+Kullanıcı bir işin YAPILMASINI istiyorsa uygun aracı çağır.
+
+Kurallar:
+- Eksik bilgi varsa aracı ÇAĞIRMA; tek cümleyle eksik bilgiyi sor. Değer uydurma.
+- Telefon, ad, tarih gibi bilgileri kullanıcının yazdığından al; tahmin etme.
+- Tarihleri "YYYY-MM-DDTHH:mm" biçiminde ve bugünün tarihine göre hesapla.
+- İletişim izni kaydederken iznin nasıl alındığı yazılmamışsa aracı çağırma, bunu sor.
+- Kullanıcı yalnızca bilgi soruyorsa (kaç kişi geldi, nasıl yapılır) araç çağırma; kısaca bunu panelin gösterebileceğini söyle.
+- ONAY SORMA. Gerekli bilgiler tamsa aracı doğrudan çağır; gönderim onayını panel ayrıca kullanıcıdan alır.
+- Özet çıkarma, plan anlatma, "ister misiniz" diye sorma; ya aracı çağır ya da eksik bilgiyi sor.`;
+
+/** Kullanıcının isteğini bir araç çağrısına çevirir. Eksik bilgi varsa soru döner. */
+export async function planAction(question: string, history: HistoryTurn[], tools: ToolSpec[], today: string): Promise<ActionPlan | null> {
+  const message = await chatRaw(
+    [
+      { role: "system", content: ACTION_SYSTEM(today) },
+      ...history,
+      { role: "user", content: question },
+    ],
+    {
+      maxTokens: 1024,
+      tools: tools.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } })),
+    },
+  );
+  if (!message) return null;
+
+  const call = message.tool_calls?.[0]?.function;
+  if (call?.name) {
+    try {
+      const args = call.arguments ? (JSON.parse(call.arguments) as Record<string, unknown>) : {};
+      return { kind: "tool", name: call.name, args };
+    } catch {
+      console.error("[assistant] araç argümanları okunamadı");
+      return null;
+    }
+  }
+  const text = message.content?.replace(/\s+/g, " ").trim();
+  return text && text.length >= 2 ? { kind: "ask", text: text.slice(0, 400) } : null;
 }
