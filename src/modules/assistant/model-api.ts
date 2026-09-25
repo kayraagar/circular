@@ -143,7 +143,7 @@ export async function classifyQuestion(question: string, history: HistoryTurn[] 
       ...history,
       { role: "user", content: question },
     ],
-    { schema: INTENT_SCHEMA, maxTokens: 4096 },
+    { schema: INTENT_SCHEMA, maxTokens: 1024 },
   );
   if (!content) return null;
   try {
@@ -199,7 +199,7 @@ export async function chatReply(question: string, history: HistoryTurn[] = []): 
       ...history,
       { role: "user", content: question },
     ],
-    { maxTokens: 1024 },
+    { maxTokens: 700 },
   );
   if (!content) return null;
   const text = content.replace(/\n{3,}/g, "\n\n").trim();
@@ -228,7 +228,7 @@ export async function phraseLead(input: { question: string; facts: string }): Pr
       { role: "system", content: PHRASE_SYSTEM },
       { role: "user", content: `Soru: ${input.question}\n\nPanelin hesapladığı veriler:\n${input.facts}` },
     ],
-    { maxTokens: 1024 },
+    { maxTokens: 512 },
   );
   if (!content) return null;
   const text = content.replace(/\s+/g, " ").trim();

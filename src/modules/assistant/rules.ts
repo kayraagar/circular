@@ -41,7 +41,7 @@ const TOPIC_KEYWORDS: Record<Exclude<AssistantTopic, "UNKNOWN">, readonly string
   NEW_CUSTOMERS: ["yeni musteri", "musteri kazanimi", "kac yeni", "nereden geliyor", "musteri kaynagi", "kayit kaynagi", "buyume"],
   EVENTS: ["etkinlik", "gece nasil", "parti nasil", "hangi etkinlik", "etkinlik performansi", "doluluk"],
   PROMOTERS: ["pr", "promoter", "pr performansi", "hangi pr", "en iyi pr", "pr ekibi", "pr katkisi"],
-  AUDIENCE: ["kime mesaj", "kimlere mesaj", "hedef kitle", "segment", "kitle", "kime gonderelim", "gelmeyenler", "geri kazan", "kayip musteri", "oneri"],
+  AUDIENCE: ["kime mesaj", "kimlere mesaj", "hedef kitle", "segment", "kitle", "kime gonder", "kimlere gonder", "gelmeyenler", "geri kazan", "kayip musteri", "oneri"],
   CONSENTS: ["izin", "izinli kisi", "onay", "iys", "abonelikten cikan", "kac kisiye mesaj atabilirim", "ulasabilecegim"],
   CAMPAIGN_RESULTS: ["kampanya sonucu", "kampanyalar nasil", "teslim edildi", "okundu", "kampanya performansi", "gonderdiklerim"],
   DRAFT: ["taslak", "taslak hazirla", "taslak mesaj", "mesaj yaz", "metin yaz", "ne yazayim", "mesaj hazirla", "kampanya hazirla", "metin oner"],
@@ -51,7 +51,7 @@ const TOPIC_KEYWORDS: Record<Exclude<AssistantTopic, "UNKNOWN">, readonly string
   UNMEASURED: ["ciro", "hasilat", "gelir", "kazanc", "kar", "satis", "adisyon", "hesap tutari", "menu goruntule", "donusum", "roi", "kisi basi harcama"],
   CHAT: ["merhaba", "selam", "gunaydin", "iyi aksamlar", "iyi geceler", "nasilsin", "tesekkur", "sagol", "naber", "gorusuruz"],
   HOWTO: [],
-  CAPABILITIES: ["ne yapabilirsin", "neler yapabilirsin", "ne sorabilirim", "nasil calisirsin", "kimsin", "yardim"],
+  CAPABILITIES: ["yapabil", "ne yapabil", "neler yapabil", "ne sorabilirim", "nasil calisirsin", "kimsin", "yardim"],
 };
 
 // ─────────────────────────────────────────────── Panel rehberleri
@@ -381,18 +381,22 @@ export function readQuestion(question: string): QuestionMatch {
   const guideBonus = QUESTION_WORDS.some((q) => words.includes(q)) ? 2 : 0;
 
   let best: { topic: AssistantTopic; guide: GuideKey | null; value: number } = { topic: "UNKNOWN", guide: null, value: 0 };
-  for (const guide of Object.values(GUIDES)) {
-    const value = score(words, guide.keywords);
-    if (value > 0 && value + guideBonus > best.value) best = { topic: "HOWTO", guide: guide.key, value: value + guideBonus };
-  }
   for (const [topic, keywords] of Object.entries(TOPIC_KEYWORDS)) {
     const value = score(words, keywords);
     if (value > best.value) best = { topic: topic as AssistantTopic, guide: null, value };
   }
+  // Rehber ancak konudan kesin olarak üstünse seçilir: "kime kampanya göndermeliyim"
+  // bir kitle sorusudur, kampanya gönderme rehberi değil.
+  for (const guide of Object.values(GUIDES)) {
+    const value = score(words, guide.keywords);
+    if (value > 0 && value + guideBonus > best.value) best = { topic: "HOWTO", guide: guide.key, value: value + guideBonus };
+  }
 
   if (best.value < 1) return { topic: "UNKNOWN", guide: null, confident: false, ...base };
-  // Yalnızca tek bir kısa kelimeye dayanan eşleşme zayıftır; dil modeli varsa o karar verir.
-  return { topic: best.topic, guide: best.guide, confident: best.value >= 3, ...base };
+  // Zayıf eşleşmede dil modeli karar verir. "Nasıl/nerede" geçmeyen bir rehber eşleşmesi
+  // de zayıf sayılır; kullanıcı işi yapmayı değil veriyi sormuş olabilir.
+  const confident = best.value >= 3 && (best.topic !== "HOWTO" || guideBonus > 0);
+  return { topic: best.topic, guide: best.guide, confident, ...base };
 }
 
 // ─────────────────────────────────────────────── Cevap biçimi
