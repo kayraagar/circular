@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { askAssistantAction } from "@/modules/assistant/actions";
-import { ASSISTANT_INTRO, STARTER_QUESTIONS, type AssistantAnswer } from "@/modules/assistant/rules";
+import { ASSISTANT_INTRO, MAX_HISTORY_TURNS, STARTER_QUESTIONS, type AssistantAnswer, type ChatTurn } from "@/modules/assistant/rules";
 import { IconArrowRight } from "@/components/ui/icons";
 import { Spinner } from "@/components/ui/spinner";
 import { AnswerView } from "./answer-view";
@@ -35,15 +35,21 @@ export function AssistantChat({ scope, compact = false }: { scope: ChatScope; co
       const text = question.trim();
       if (!text || loading) return;
       const id = Date.now();
+      // Konuşma bağlamı: önceki turlar sunucuya gider, kişisel veri içerenler orada ayıklanır.
+      const history: ChatTurn[] = [];
+      for (const m of messages.slice(-MAX_HISTORY_TURNS)) {
+        if (m.role === "user") history.push({ role: "user", text: m.text });
+        else if (m.role === "assistant") history.push({ role: "assistant", text: m.answer.lead, topic: m.answer.topic });
+      }
       setMessages((prev) => [...prev, { id, role: "user", text }]);
       setDraft("");
       setLoading(true);
-      const result = await askAssistantAction({ question: text, venueId: scope.venueId, venueLabel: scope.venueLabel });
+      const result = await askAssistantAction({ question: text, venueId: scope.venueId, venueLabel: scope.venueLabel, history });
       setLoading(false);
       setMessages((prev) => [...prev, result.ok ? { id: id + 1, role: "assistant", answer: result.answer } : { id: id + 1, role: "error", text: result.message }]);
       inputRef.current?.focus();
     },
-    [loading, scope.venueId, scope.venueLabel],
+    [loading, messages, scope.venueId, scope.venueLabel],
   );
 
   return (

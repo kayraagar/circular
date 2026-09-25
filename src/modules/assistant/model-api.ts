@@ -29,8 +29,14 @@ export function modelReady(): boolean {
   return modelConfig().apiKey !== null;
 }
 
-type ChatMessage = { role: "system" | "user"; content: string };
+type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
+/**
+ * gpt-oss gibi akıl yürüten modeller cevaptan önce "düşünme" tokenı üretir ve bunlar
+ * max_completion_tokens bütçesinden sayılır. Bütçe düşük olursa model geçerli JSON'a
+ * başlayamadan kesilir (Groq: json_validate_failed). Bu yüzden bütçe geniş,
+ * düşünme derinliği düşük tutulur.
+ */
 async function chat(messages: ChatMessage[], opts: { schema?: object; maxTokens: number }): Promise<string | null> {
   const config = modelConfig();
   if (!config.apiKey) return null;
@@ -43,8 +49,9 @@ async function chat(messages: ChatMessage[], opts: { schema?: object; maxTokens:
       body: JSON.stringify({
         model: config.model,
         messages,
-        temperature: 0,
+        temperature: opts.schema ? 0 : 0.6,
         max_completion_tokens: opts.maxTokens,
+        reasoning_effort: "low",
         ...(opts.schema
           ? { response_format: { type: "json_schema", json_schema: { name: "asistan_niyet", strict: true, schema: opts.schema } } }
           : {}),
@@ -109,9 +116,11 @@ Konular:
 - PERKS: avantaj/ikram kullanımı.
 - CHANNELS: WhatsApp/SMS/e-posta/Instagram bağlantı durumu.
 - CUSTOMER: belirli bir kişi soruluyor ("Ali en son ne zaman geldi", "bu numara kayıtlı mı").
+- UNMEASURED: ciro, satış tutarı, adisyon, kâr, kişi başı harcama, menü görüntüleme sayısı veya kampanya satış dönüşümü soruluyor. Bu veriler panelde ölçülmez.
+- CHAT: panel verisiyle ilgisi olmayan gündelik sohbet, selamlaşma, teşekkür, genel bilgi sorusu veya fikir sorma.
 - HOWTO: panelde bir işin nasıl yapılacağı soruluyor. Bu durumda guide alanını doldur.
 - CAPABILITIES: asistanın ne yapabildiği soruluyor.
-- UNKNOWN: yukarıdakilerin hiçbiri değil veya panel verisiyle ilgisiz.
+- UNKNOWN: soru anlaşılmıyor veya boş. Sohbet niteliğindeyse UNKNOWN değil CHAT kullan.
 
 Kurallar:
 - periodDays: soruda "bu hafta/7 gün" geçiyorsa 7, "3 ay/90 gün/çeyrek" geçiyorsa 90, aksi halde 30.
@@ -124,14 +133,17 @@ function pick<T extends string>(value: unknown, allowed: readonly T[]): T | null
   return typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : null;
 }
 
+export type HistoryTurn = { role: "user" | "assistant"; content: string };
+
 /** Soruyu modele sınıflandırtır. Model yoksa/başarısızsa null döner (çağıran anahtar kelime moduna düşer). */
-export async function classifyQuestion(question: string): Promise<ModelIntent | null> {
+export async function classifyQuestion(question: string, history: HistoryTurn[] = []): Promise<ModelIntent | null> {
   const content = await chat(
     [
       { role: "system", content: INTENT_SYSTEM },
+      ...history,
       { role: "user", content: question },
     ],
-    { schema: INTENT_SCHEMA, maxTokens: 200 },
+    { schema: INTENT_SCHEMA, maxTokens: 4096 },
   );
   if (!content) return null;
   try {
@@ -169,6 +181,31 @@ export function usesOnlyGivenNumbers(text: string, given: string): boolean {
   return numberForms(text).every((n) => allowed.has(n));
 }
 
+const CHAT_SYSTEM = `Sen Circular adlı bir restoran/kafe/gece kulübü CRM panelinin asistanısın. Karşındaki kişi işletme sahibi veya pazarlama yöneticisi.
+
+Gündelik sohbet edebilirsin: selamlaşma, hâl hatır, genel sorular, fikir alışverişi. Kısa ve doğal konuş.
+
+Kurallar:
+- İşletmenin verisi elinde YOK. Müşteri sayısı, giriş, ciro gibi bir şey sorulursa sayı uydurma; panelden bakabileceğini söyle ve nasıl soracağını örnekle ("son 30 günde kaç kişi geldi?" gibi).
+- Hukuki, mali veya tıbbi tavsiye verme.
+- En fazla üç kısa cümle. Madde işareti, başlık ve emoji kullanma.
+- Türkçe yaz ve kullanıcıya siz diye hitap et.`;
+
+/** Gündelik sohbet cevabı. Panel verisi gönderilmez; model de veri uydurmamakla yükümlüdür. */
+export async function chatReply(question: string, history: HistoryTurn[] = []): Promise<string | null> {
+  const content = await chat(
+    [
+      { role: "system", content: CHAT_SYSTEM },
+      ...history,
+      { role: "user", content: question },
+    ],
+    { maxTokens: 1024 },
+  );
+  if (!content) return null;
+  const text = content.replace(/\n{3,}/g, "\n\n").trim();
+  return text.length >= 2 && text.length <= 1200 ? text : null;
+}
+
 const PHRASE_SYSTEM = `Sen bir CRM panelinin asistanısın. Sana bir işletme sahibinin sorusu ve panelin hesapladığı kesin sayılar veriliyor.
 Görevin: bu sayıları kullanarak Türkçe, en fazla iki kısa cümlelik bir cevap yazmak.
 
@@ -191,7 +228,7 @@ export async function phraseLead(input: { question: string; facts: string }): Pr
       { role: "system", content: PHRASE_SYSTEM },
       { role: "user", content: `Soru: ${input.question}\n\nPanelin hesapladığı veriler:\n${input.facts}` },
     ],
-    { maxTokens: 220 },
+    { maxTokens: 1024 },
   );
   if (!content) return null;
   const text = content.replace(/\s+/g, " ").trim();

@@ -154,11 +154,16 @@ giriş, yoğunluk, yeni müşteri ve kaynak, etkinlik ve PR performansı, kitle 
 avantajlar, kanal durumu ve 12 başlıkta panel rehberi. Taslak mesaj üretir; gönderme aracı yoktur, onay insandadır.
 Veri yoksa açıkça söyler, sayı uydurmaz.
 
+Dil modeli bağlı (Groq, `GROQ_API_KEY`): serbest cümle anlama, konuşma bağlamı (son 6 tur) ve gündelik sohbet.
+Modele giden veri sınırlıdır: soru metni ve cevabın toplu sayıları. Kişi adı/telefon/e-posta gönderilmez; kişi ve PR
+konularında model hiç çağrılmaz ve bu cevaplar konuşma geçmişinden de ayıklanır. Modelin cümlesindeki her sayı panelin
+hesapladığı değerlerle karşılaştırılır, uyuşmazsa cümle atılır. Anahtar yoksa asistan anahtar kelime moduyla çalışır.
+Ölçülmeyen veriler (ciro, menü görüntüleme, kampanya dönüşümü) için ayrı bir cevap verilir; rakam üretilmez.
+
 Açık kalanlar:
-- **Dil modeli bağlanması:** serbest cümle anlama ve cevabın kullanıcının diliyle yazılması. Model sağlayıcısına müşteri
-  verisi gönderileceği için önce KVKK kararı (hangi alanlar gider, maskelenir mi, saklama süresi) ve işletmeye açık bilgi
-  gerekir; karar verilmeden bağlanmamalı.
-- Müşteri arama ve tekil kişi soruları ("Ali en son ne zaman geldi?").
+- **Asistandan onaylı işlemler:** kitleyi ve metni hazırlayıp asistan içinde tek tuşla gönderim; müşteri ekleme,
+  etiketleme, izin kaydetme, etkinliğe guest ekleme. Her işlem kullanıcı onayıyla ve mevcut servis kurallarıyla yapılmalı.
+- KVKK aydınlatma metni: işletmeye, sorularının dil modeli sağlayıcısına gittiğinin açıkça bildirilmesi.
 - Konuşma geçmişinin kaydı (şimdilik yalnızca sekmede tutulur) ve asistan kullanımının denetim kaydı.
 - Özel tarih aralığı ("15 Eylül – 30 Eylül") ve mekan adı geçen sorular ("Orbita Kulüp'te kaç kişi geldi?").
 

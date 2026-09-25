@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { db } from "@/lib/db";
 import { ForbiddenError } from "@/lib/errors";
 import { createCustomer, setConsent } from "@/modules/customers/service";
-import { ask } from "@/modules/assistant/service";
+import { ask, safeHistory } from "@/modules/assistant/service";
 import { readPerson, readQuestion } from "@/modules/assistant/rules";
 import { modelReady, usesOnlyGivenNumbers } from "@/modules/assistant/model-api";
 import { makeTenant, resetDb } from "./helpers";
@@ -175,6 +175,37 @@ describe("Asistan", () => {
     // Başka işletmenin müşterisi bu aramada görünmez
     const other = await ask(B.owner, { question: "Ali en son ne zaman geldi?" }, NOW);
     assert.match(other.lead, /kayıt bulunamadı/);
+  });
+
+  test("ölçülmeyen veri sorulunca rakam verilmez", async () => {
+    for (const question of ["bu ay ciromuz ne kadar", "menü kaç kez görüntülendi", "kampanya kaç satış getirdi"]) {
+      const answer = await ask(A.owner, { question }, NOW);
+      assert.equal(answer.topic, "UNMEASURED", question);
+      assert.ok(!answer.blocks.some((b) => b.kind === "stats"), "ölçülmeyen veri için rakam kutusu gösterilmez");
+    }
+  });
+
+  test("sohbet: model yokken kısa selamlaşma, kişisel geçmiş modele gönderilmez", async () => {
+    const hello = await ask(A.owner, { question: "merhaba" }, NOW);
+    assert.equal(hello.topic, "CHAT");
+    assert.match(hello.lead, /Merhaba/);
+    assert.equal(hello.blocks.length, 0, "sohbette veri kutusu gösterilmez");
+
+    const thanks = await ask(A.owner, { question: "teşekkürler" }, NOW);
+    assert.match(thanks.lead, /Rica ederim/);
+
+    // Kişi cevabı ve onu doğuran soru, modele giden geçmişten çıkarılır
+    const safe = safeHistory([
+      { role: "user", text: "Son 30 günde kaç kişi geldi?" },
+      { role: "assistant", text: "19 kişi girdi.", topic: "VISITS" },
+      { role: "user", text: "Selin Arslan en son ne zaman geldi?" },
+      { role: "assistant", text: "Selin Arslan en son 15 Eylül'de geldi.", topic: "CUSTOMER" },
+    ]);
+    assert.deepEqual(
+      safe.map((t) => t.role),
+      ["user", "assistant"],
+    );
+    assert.ok(!JSON.stringify(safe).includes("Selin"), "kişi adı geçmişte taşınmaz");
   });
 
   test("işletme izolasyonu: başka işletmenin verisi görünmez", async () => {

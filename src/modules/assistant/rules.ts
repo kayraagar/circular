@@ -25,6 +25,8 @@ export const ASSISTANT_TOPICS = [
   "PERKS",
   "CHANNELS",
   "CUSTOMER",
+  "CHAT",
+  "UNMEASURED",
   "HOWTO",
   "CAPABILITIES",
   "UNKNOWN",
@@ -46,6 +48,8 @@ const TOPIC_KEYWORDS: Record<Exclude<AssistantTopic, "UNKNOWN">, readonly string
   PERKS: ["avantaj", "ikram", "hediye", "perk", "kullanilan avantaj"],
   CHANNELS: ["kanal durumu", "bagli mi", "whatsapp durumu", "sms durumu", "eposta durumu", "instagram durumu", "kurulum durumu", "hazir mi"],
   CUSTOMER: ["en son ne zaman", "kayitli mi", "musteri ara", "numara kayitli", "kim geldi", "bu kisi", "ne zaman geldi"],
+  UNMEASURED: ["ciro", "hasilat", "gelir", "kazanc", "kar", "satis", "adisyon", "hesap tutari", "menu goruntule", "donusum", "roi", "kisi basi harcama"],
+  CHAT: ["merhaba", "selam", "gunaydin", "iyi aksamlar", "iyi geceler", "nasilsin", "tesekkur", "sagol", "naber", "gorusuruz"],
   HOWTO: [],
   CAPABILITIES: ["ne yapabilirsin", "neler yapabilirsin", "ne sorabilirim", "nasil calisirsin", "kimsin", "yardim"],
 };
@@ -323,6 +327,13 @@ export function readChannel(question: string): CampaignChannel | null {
   if (hasWord(words, "eposta") || hasWord(words, "email") || hasWord(words, "mail") || hasWord(words, "mailing")) return "EMAIL";
   return null;
 }
+
+/** Konuşma geçmişi — istemcide tutulur, modele yalnızca kişisel veri içermeyen kısmı gider. */
+export type ChatTurn = { role: "user" | "assistant"; text: string; topic?: AssistantTopic };
+export const MAX_HISTORY_TURNS = 6;
+
+/** Cevabı kişi adı içerebilen konular: geçmişte modele gönderilmez. */
+export const PERSONAL_TOPICS: readonly AssistantTopic[] = ["CUSTOMER", "PROMOTERS"];
 
 export type QuestionMatch = {
   topic: AssistantTopic;

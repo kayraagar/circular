@@ -11,10 +11,11 @@ import { getEmailOverview } from "@/modules/campaigns/email-service";
 import { getInstagramOverview } from "@/modules/campaigns/instagram-service";
 import { CAMPAIGN_CHANNELS, CAMPAIGN_CHANNEL_LABELS, SEGMENT_COPY, type CampaignChannel, type SegmentKey } from "@/modules/campaigns/rules";
 import { getSmsAccount } from "@/modules/campaigns/sms-service";
+import { foldText } from "@/lib/normalize";
 import { customerSearchWhere } from "@/modules/customers/service";
 import { getPrOverview } from "@/modules/pr/service";
 import { getReports, type Delta, type ReportData } from "@/modules/reports/service";
-import { classifyQuestion, modelReady, phraseLead } from "./model-api";
+import { chatReply, classifyQuestion, modelReady, phraseLead, type HistoryTurn } from "./model-api";
 import {
   fmt,
   GUIDES,
@@ -24,7 +25,10 @@ import {
   STARTER_QUESTIONS,
   type AnswerBlock,
   type AssistantAnswer,
+  MAX_HISTORY_TURNS,
+  PERSONAL_TOPICS,
   type AssistantTopic,
+  type ChatTurn,
   type QuestionMatch,
 } from "./rules";
 
@@ -36,7 +40,7 @@ import {
  * yalnızca okur ve taslak metin önerir. Yetki ve mekan kapsamı çağrılan servislerde uygulanır.
  */
 
-export type AskInput = { question: string; venueId?: string | null; venueLabel?: string | null };
+export type AskInput = { question: string; venueId?: string | null; venueLabel?: string | null; history?: ChatTurn[] };
 
 const MAX_QUESTION_LENGTH = 400;
 
@@ -623,6 +627,62 @@ function capabilitiesAnswer(): AssistantAnswer {
   };
 }
 
+/**
+ * Gündelik sohbet. Cevabı dil modeli yazar; panel verisi gönderilmez ve
+ * bu yüzden cevap "Sohbet" olarak işaretlenir — veriye dayanan cevaplarla karışmasın.
+ */
+async function chatAnswer(question: string, history: HistoryTurn[]): Promise<AssistantAnswer> {
+  const reply = await chatReply(question, history);
+  if (!reply) return unknownAnswer();
+  return {
+    topic: "CHAT",
+    title: "",
+    lead: reply,
+    scope: "Sohbet · panel verisi kullanılmadı",
+    blocks: [],
+    followUps: ["Son 30 günde işler nasıl gidiyor?", "Kimlere mesaj atmalıyım?"],
+  };
+}
+
+/**
+ * Ölçülmeyen veriler: ciro, menü görüntüleme, kampanya dönüşümü. Circular bunları
+ * toplamaz (kasa/POS bağlantısı yoktur), bu yüzden tahmin de edilmez.
+ */
+function unmeasuredAnswer(): AssistantAnswer {
+  return {
+    topic: "UNMEASURED",
+    title: "Bu veri ölçülmüyor",
+    lead: "Ciro, adisyon tutarı, menü görüntüleme ve kampanyanın satışa dönüşümü Circular'da toplanmıyor; kasa/POS bağlantısı yok. Bu yüzden bir rakam veremem, tahmin de etmem.",
+    scope: null,
+    blocks: [
+      {
+        kind: "bullets",
+        items: [
+          "Ölçülenler: kapıdan giren kişi, etkinlik kaydı ve davetli sayısı, yeni müşteri ve kaynağı, avantaj kullanımı, PR katkısı, iletişim izinleri, kampanya teslim ve okunma durumları.",
+          "Ölçülmeyenler: ciro ve adisyon, kişi başı harcama, menü görüntüleme sayısı, kampanyanın satışa dönüşümü.",
+        ],
+      },
+      note("Bunlar ileride kasa/POS entegrasyonu veya menü görüntüleme ölçümü eklenirse gelir; o zamana kadar raporlarda da yer almaz."),
+      links([{ href: "/reports", label: "Ölçülen verileri gör" }]),
+    ],
+    followUps: ["Son 30 günde kaç kişi geldi?", "Etkinlikler nasıl gitti?", "Hangi avantajlar kullanıldı?"],
+  };
+}
+
+/** Dil modeli yokken selamlaşma: kısa ve dürüst, sohbeti sürdürmeye çalışmaz. */
+function greetingAnswer(question: string): AssistantAnswer {
+  const words = foldText(question);
+  const thanks = /tesekkur|sagol|sag ol|eyvallah/.test(words);
+  return {
+    topic: "CHAT",
+    title: "",
+    lead: thanks ? "Rica ederim. Başka bir şey sormak isterseniz buradayım." : "Merhaba. Verinizle ilgili ne sormak istersiniz?",
+    scope: null,
+    blocks: [],
+    followUps: [...STARTER_QUESTIONS.slice(0, 3)],
+  };
+}
+
 function unknownAnswer(): AssistantAnswer {
   return {
     topic: "UNKNOWN",
@@ -640,6 +700,24 @@ function unknownAnswer(): AssistantAnswer {
 
 /** Ücretsiz model kotasını korur: işletme başına dakikada 20 soru. */
 const modelLimiter = createRateLimiter({ windowMs: 60_000, max: 20 });
+
+/**
+ * Modele gönderilebilecek konuşma geçmişi: kişi adı içerebilen cevaplar ve onları
+ * doğuran sorular çıkarılır (müşteri kartı, PR performansı).
+ */
+export function safeHistory(history: ChatTurn[] | undefined): HistoryTurn[] {
+  const turns = (history ?? []).slice(-MAX_HISTORY_TURNS);
+  const out: HistoryTurn[] = [];
+  for (const turn of turns) {
+    if (turn.role === "assistant" && turn.topic && PERSONAL_TOPICS.includes(turn.topic)) {
+      if (out.length > 0 && out[out.length - 1].role === "user") out.pop();
+      continue;
+    }
+    const content = turn.text.trim().slice(0, 300);
+    if (content) out.push({ role: turn.role, content });
+  }
+  return out;
+}
 
 /** Cevap cümlesinin modele yazdırılabileceği konular: yalnızca toplu sayılar içerir. */
 const PHRASABLE_TOPICS = new Set<AssistantTopic>(["SUMMARY", "VISITS", "PEAK_TIME", "NEW_CUSTOMERS", "EVENTS", "CONSENTS", "CAMPAIGN_RESULTS", "PERKS", "AUDIENCE"]);
@@ -661,12 +739,12 @@ function factsOf(answer: AssistantAnswer): string {
  * Soruyu önce anahtar kelimelerle çözer. Eşleşme zayıfsa ve dil modeli bağlıysa
  * sınıflandırmayı modele sorar; model erişilemezse anahtar kelime sonucu kullanılır.
  */
-async function resolveQuestion(ctx: ServiceContext, question: string): Promise<QuestionMatch> {
+async function resolveQuestion(ctx: ServiceContext, question: string, history: HistoryTurn[]): Promise<QuestionMatch> {
   const local = readQuestion(question);
   if (local.confident || !modelReady()) return local;
   if (!modelLimiter.hit(ctx.tenantId).allowed) return local;
 
-  const intent = await classifyQuestion(question);
+  const intent = await classifyQuestion(question, history);
   if (!intent) return local;
   return {
     topic: intent.topic,
@@ -684,8 +762,9 @@ async function resolveQuestion(ctx: ServiceContext, question: string): Promise<Q
 export async function ask(ctx: ServiceContext, input: AskInput, now = new Date()): Promise<AssistantAnswer> {
   assertCan(ctx, "assistant.use");
   const question = (input.question ?? "").slice(0, MAX_QUESTION_LENGTH);
-  const match = await resolveQuestion(ctx, question);
-  const answer = await answerFor(ctx, match, input, now);
+  const history = safeHistory(input.history);
+  const match = await resolveQuestion(ctx, question, history);
+  const answer = await answerFor(ctx, match, input, now, history);
 
   // Cevap cümlesini model yazsın: yalnızca toplu sayılar gider ve sayılar doğrulanır.
   if (PHRASABLE_TOPICS.has(answer.topic) && modelReady() && modelLimiter.hit(ctx.tenantId).allowed) {
@@ -696,12 +775,16 @@ export async function ask(ctx: ServiceContext, input: AskInput, now = new Date()
   return answer;
 }
 
-async function answerFor(ctx: ServiceContext, match: QuestionMatch, input: AskInput, now: Date): Promise<AssistantAnswer> {
+async function answerFor(ctx: ServiceContext, match: QuestionMatch, input: AskInput, now: Date, history: HistoryTurn[]): Promise<AssistantAnswer> {
   const venueLabel = input.venueLabel ?? null;
+  const question = input.question ?? "";
 
   if (match.topic === "HOWTO") return howToAnswer(match);
   if (match.topic === "CAPABILITIES") return capabilitiesAnswer();
-  if (match.topic === "UNKNOWN") return unknownAnswer();
+  if (match.topic === "UNMEASURED") return unmeasuredAnswer();
+  // Sohbet ve anlaşılmayan soru: dil modeli varsa konuşur, yoksa dürüstçe anlamadığını söyler.
+  if (match.topic === "CHAT") return modelReady() ? chatAnswer(question, history) : greetingAnswer(question);
+  if (match.topic === "UNKNOWN") return modelReady() ? chatAnswer(question, history) : unknownAnswer();
 
   if (match.topic === "PROMOTERS") return promotersAnswer(ctx, match, now);
   if (match.topic === "CHANNELS") return channelsAnswer(ctx, match, now);

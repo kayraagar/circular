@@ -190,8 +190,8 @@ export function AnswerView({ answer, onFollowUp }: { answer: AssistantAnswer; on
     <div className="space-y-3.5">
       <div>
         {answer.scope && <p className="eyebrow mb-1.5">{answer.scope}</p>}
-        <p className="font-display text-[15px] font-medium text-fg">{answer.title}</p>
-        <p className="mt-1 text-sm leading-relaxed text-muted">{answer.lead}</p>
+        {answer.title && <p className="font-display text-[15px] font-medium text-fg">{answer.title}</p>}
+        <p className={`text-sm leading-relaxed whitespace-pre-wrap ${answer.title ? "mt-1 text-muted" : "text-fg"}`}>{answer.lead}</p>
       </div>
       {answer.blocks.map((block, i) => (
         <Block key={i} block={block} />

@@ -314,9 +314,14 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   katkısı, kitle önerisi, iletişim izinleri, kampanya sonuçları, avantajlar ve kanal kurulum durumu. Ayrıca panel rehberi:
   guest ekleme, kampanya gönderme, QR menü, kapıda giriş, avantaj, PR daveti gibi işleri adım adım anlatıp ilgili ekrana
   bağlar. Kitleye uygun **taslak mesaj** üretir (şablon metin; işletme adı ve `{{ad}}` yerleştirilir).
+  Gündelik sohbet de eder; sohbet cevapları "panel verisi kullanılmadı" etiketiyle gösterilir. Ciro, menü görüntüleme ve
+  kampanya dönüşümü sorulursa bunların ölçülmediğini söyler, rakam vermez.
   Asistan hiçbir kaydı değiştirmez, mesaj göndermez; konuşma geçmişi sunucuya kaydedilmez.
-  **Henüz bir dil modeli bağlı değildir:** soru anlama anahtar kelime eşlemesiyle yapılır (Türkçe ek ve ünsüz yumuşaması
-  toleranslı), eşleşme yoksa tahmin yürütmez, anlamadığını söyler ve örnek sorular önerir.
+  **Dil modeli (Groq, `GROQ_API_KEY`):** anahtar kelime eşleşmesi güçlüyse model çağrılmaz; zayıfsa soru modele
+  sınıflandırtılır ve cevap cümlesini model yazar. Modele yalnızca yazdığınız soru ve cevabın toplu sayıları gider —
+  müşteri adı, telefonu, e-postası gönderilmez; kişi ve PR cevaplarında model hiç devreye girmez. Modelin cümlesinde
+  panelin hesaplamadığı bir sayı varsa cümle atılır ve hazır metin kullanılır. Anahtar yoksa veya modele ulaşılamazsa
+  asistan anahtar kelime moduna düşer (Türkçe ek ve ünsüz yumuşaması toleranslı).
 - **Raporlar** (soldaki **Raporlar** → `/reports`; işletme sahibi ve CRM yöneticisi): 7/30/90 günlük dönem, seçili mekana göre.
   Kapıdan giren kişi, yeni müşteri, etkinlik kaydı ve avantaj kullanımı için önceki dönemle karşılaştırma; günlük giriş eğrisi,
   saate ve haftanın gününe göre yoğunluk (Istanbul saatiyle), biten etkinliklerde davetli → gerçek giriş oranı, PR katkısı,
@@ -326,13 +331,12 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
 
 ### Sonraki fazlara kalanlar
 PR davet linki tıklama ölçümü · public üyelik/etkinlik sayfaları · WhatsApp için İYS entegratör bağlantısı ·
-zamanlanmış/otomatik kampanyalar · asistana dil modeli bağlanması · WhatsApp Club · rapor dışa aktarma ·
+zamanlanmış/otomatik kampanyalar · asistandan onaylı gönderim ve kayıt değişikliği · WhatsApp Club · rapor dışa aktarma ·
 ekip/mekan yönetimi · platform konsolu.
 Ayrıntılar ve açık kararlar: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ### Bilinen eksikler
 - Ayarlar salt okunur: ekip daveti, rol değiştirme ve mekan ekleme yok (demo verisi seed ile gelir).
-- AI Asistan'a dil modeli bağlı değil: serbest cümleleri değil, tanımlı konuları anlar.
 - Şifre sıfırlama ve e-posta doğrulama yok.
 - Giriş hız sınırlayıcısı bellek içidir; tek süreçli dağıtım içindir.
 - Etkinlik guest listesi sayfalanmıyor (yüzlerce kayıt için uygun, binlerce için sayfalama gerekir).
