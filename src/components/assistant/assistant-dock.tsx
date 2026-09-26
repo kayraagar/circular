@@ -60,9 +60,11 @@ export function AssistantDock({ scope }: { scope: ChatScope }) {
           onClick={() => setOpen(true)}
           aria-expanded={false}
           aria-label="AI Asistan'a sor"
-          className="fixed right-4 bottom-4 z-40 inline-flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-4 text-[13px] text-fg shadow-[0_12px_30px_-12px_rgb(0_0_0/0.9)] transition-colors hover:border-line-strong hover:bg-raised sm:right-6 sm:bottom-6"
+          className="fixed right-4 bottom-4 z-40 inline-flex h-14 items-center gap-2.5 rounded-full border border-line bg-surface pr-5 pl-4 text-[15px] font-medium text-fg shadow-[0_16px_40px_-14px_rgb(0_0_0/0.95)] transition-colors hover:border-line-strong hover:bg-raised sm:right-6 sm:bottom-6"
         >
-          <IconOrbit size={16} className="text-accent" />
+          <span aria-hidden className="inline-flex size-8 items-center justify-center rounded-full bg-raised text-accent">
+            <IconOrbit size={19} />
+          </span>
           Asistan
         </button>
       )}

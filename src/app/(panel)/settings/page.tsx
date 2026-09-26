@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { requirePermission } from "@/lib/context";
 import { formatDate } from "@/lib/datetime";
 import { VENUE_TYPE_LABELS, labelOf } from "@/lib/domain";
@@ -6,6 +7,7 @@ import { brand } from "@/config/brand";
 import { getTenantSettings } from "@/modules/settings/service";
 import { getTeam } from "@/modules/team/service";
 import { getTenantLegal } from "@/modules/legal/tenant-legal";
+import { legalDocuments } from "@/modules/legal/documents";
 import { TeamManager } from "./team-manager";
 import { LegalForm } from "./legal-form";
 import { BrandMark } from "@/components/ui/brand-mark";
@@ -17,6 +19,7 @@ export default async function SettingsPage() {
   const ctx = await requirePermission("settings.view");
   const { tenant, venues } = await getTenantSettings(ctx.service);
   const [team, legal] = await Promise.all([getTeam(ctx.service), getTenantLegal(ctx.service)]);
+  const documents = legalDocuments();
 
   return (
     <>
@@ -63,8 +66,6 @@ export default async function SettingsPage() {
           </ul>
         </Card>
 
-        <LegalForm legal={legal} />
-
         <TeamManager members={team.members} invites={team.invites} venues={team.venues} />
 
         <Card>
@@ -80,6 +81,36 @@ export default async function SettingsPage() {
               Müşteriye açık menü ve üyelik sayfalarında mekanın kendi logosu öne çıkacak.
             </p>
           </div>
+        </Card>
+
+        {/* Yasal bölüm en altta: önce işletmenin kendi bilgileri, sonra Circular'ın metinleri. */}
+        <div className="border-t border-line pt-6">
+          <h2 className="eyebrow">Yasal</h2>
+          <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted">
+            Panele giren kişilerin verisinde veri sorumlusu {brand.name}, mekanın müşterilerinin verisinde ise işletmenizdir;{" "}
+            {brand.name} bu veride veri işleyendir.
+          </p>
+        </div>
+
+        <LegalForm legal={legal} />
+
+        <Card>
+          <CardHeader title={`${brand.name} yasal metinleri`} description="Herkese açık; müşterilerinizle de paylaşabilirsiniz." />
+          <ul className="p-2">
+            {documents.map((doc) => (
+              <li key={doc.slug}>
+                <Link href={`/yasal/${doc.slug}`} className="flex flex-col gap-1 rounded-field px-3 py-3 transition-colors hover:bg-raised sm:flex-row sm:items-center sm:gap-4">
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm text-fg">{doc.title}</span>
+                    <span className="mt-0.5 block text-[12px] leading-relaxed text-muted">{doc.summary}</span>
+                  </span>
+                  <span className="shrink-0 font-mono text-[11px] tracking-wide text-muted">
+                    v{doc.version} · {doc.updatedAt}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </Card>
       </div>
     </>
