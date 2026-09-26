@@ -327,6 +327,17 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   müşteri adı, telefonu, e-postası gönderilmez; kişi ve PR cevaplarında model hiç devreye girmez. Modelin cümlesinde
   panelin hesaplamadığı bir sayı varsa cümle atılır ve hazır metin kullanılır. Anahtar yoksa veya modele ulaşılamazsa
   asistan anahtar kelime moduna düşer (Türkçe ek ve ünsüz yumuşaması toleranslı).
+- **Yasal metinler** (`/yasal`; herkese açık, oturum gerektirmez): Aydınlatma Metni (panel kullanıcıları · KVKK m.10),
+  Gizlilik Politikası, Kullanım Koşulları, Çerez Politikası ve Veri İşleme Sözleşmesi özeti. Metinler şablon değil:
+  uygulamanın gerçekten işlediği veriler, kullandığı iki çerez ve veri aktardığı tedarikçiler koddan çıkarılarak yazıldı;
+  sürüm ve güncelleme tarihi taşır. Veri sorumlusunun kimliği ortam değişkenlerinden okunur (`LEGAL_*`); eksikse sayfa
+  "yayına hazır değil" uyarısı gösterir ve metne yer tutucu koyar — uydurulmaz.
+- **Veri sorumlusu bilgileri** (**Ayarlar** → Yasal bilgiler; yalnızca işletme sahibi): ticaret unvanı, adres, MERSİS,
+  VERBİS, başvuru e-postası ve işletmenin kendi aydınlatma metni adresi. Bu bilgiler müşteriye açık kayıt formunda
+  gösterilir: veri toplanmadan önce veri sorumlusunun kimliği, işleme amacı ve başvuru adresi görünür. Eksikse formda
+  "bu işletme aydınlatma bilgilerini henüz tamamlamadı" uyarısı çıkar.
+  **Rol dağılımı:** panele giren kişilerin verisi için veri sorumlusu Circular, mekanın müşterileri için ilgili işletmedir;
+  Circular bu veriler bakımından veri işleyendir.
 - **Ekip yönetimi** (soldaki **Ayarlar**; yalnızca işletme sahibi): ekip üyelerini davet eder, rollerini ve mekan
   erişimlerini değiştirir, erişimlerini kapatıp açarsınız. **Davet e-posta göndermez:** tek kullanımlık bir bağlantı
   üretilir, siz iletirsiniz. Kişi bağlantıyı açıp kendi şifresini belirler (en az 10 karakter); o e-postayla zaten hesabı

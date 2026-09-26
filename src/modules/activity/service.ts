@@ -51,7 +51,8 @@ export type ActivityAction =
   | "team.joined"
   | "team.role_changed"
   | "team.status_changed"
-  | "team.venues_changed";
+  | "team.venues_changed"
+  | "tenant.legal_updated";
 
 export type ActivityInput = {
   action: ActivityAction;
@@ -74,7 +75,8 @@ export type ActivityInput = {
     | "email"
     | "instagram"
     | "membership"
-    | "team_invite";
+    | "team_invite"
+    | "tenant";
   entityId: string;
   customerId?: string | null;
   eventId?: string | null;

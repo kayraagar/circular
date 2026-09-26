@@ -16,12 +16,15 @@ export function SignupForm({
   tenantName,
   perkName,
   privacyUrl,
+  legal,
   colors,
 }: {
   slug: string;
   tenantName: string;
   perkName: string | null;
   privacyUrl: string | null;
+  /** İşletmenin veri sorumlusu bilgileri; eksikse kişiye bu durum bildirilir. */
+  legal: { name: string | null; email: string | null; address: string | null; ready: boolean };
   colors: { fg: string; accent: string; background: string };
 }) {
   const [state, action, pending] = useActionState(publicSignupAction, IDLE);
@@ -107,15 +110,41 @@ export function SignupForm({
         {err("consents") && <p className="mt-2 text-[13px]">{err("consents")}</p>}
       </fieldset>
 
-      <p className="text-[12px] leading-relaxed" style={{ color: muted }}>
-        Bilgileriniz {tenantName} tarafından üyelik kaydınızı oluşturmak
-        {perkName ? ", size tanımlanan ikramı iletmek" : ""} ve yalnızca izin verdiğiniz kanallardan duyuru göndermek için kullanılır.{" "}
-        {privacyUrl && (
-          <a href={privacyUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" style={{ color: colors.fg }}>
-            Aydınlatma metni
-          </a>
+      {/* KVKK m.10: veri toplanmadan önce veri sorumlusunun kimliği, amaç ve haklar bildirilir. */}
+      <div className="space-y-1.5 text-[12px] leading-relaxed" style={{ color: muted }}>
+        <p>
+          Veri sorumlusu: <span style={{ color: colors.fg }}>{legal.name ?? tenantName}</span>
+          {legal.address ? ` · ${legal.address}` : ""}
+        </p>
+        <p>
+          Bilgileriniz üyelik kaydınızı oluşturmak
+          {perkName ? ", size tanımlanan ikramı iletmek" : ""} ve yalnızca izin verdiğiniz kanallardan duyuru göndermek için işlenir. İzninizi
+          istediğiniz zaman geri alabilirsiniz.
+        </p>
+        <p>
+          {legal.email ? (
+            <>
+              KVKK kapsamındaki haklarınız için{" "}
+              <a href={`mailto:${legal.email}`} className="underline underline-offset-2" style={{ color: colors.fg }}>
+                {legal.email}
+              </a>{" "}
+              adresine başvurabilirsiniz.
+            </>
+          ) : (
+            "KVKK kapsamındaki haklarınız için işletmeye başvurabilirsiniz."
+          )}{" "}
+          {privacyUrl && (
+            <a href={privacyUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2" style={{ color: colors.fg }}>
+              Aydınlatma metni
+            </a>
+          )}
+        </p>
+        {!legal.ready && (
+          <p role="status" style={{ color: colors.fg }}>
+            Not: Bu işletme aydınlatma bilgilerini henüz tamamlamadı.
+          </p>
         )}
-      </p>
+      </div>
 
       <button
         type="submit"

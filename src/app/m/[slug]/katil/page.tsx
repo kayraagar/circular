@@ -6,6 +6,7 @@ import { CircleMotif } from "@/components/menu/menu-preview";
 import { menuFontVariables } from "@/components/menu/fonts";
 import { publicMenuPath } from "@/modules/menu/campaign";
 import { getPublicMenu } from "@/modules/menu/public";
+import { readTenantLegal } from "@/modules/legal/tenant-legal";
 import { readableForeground, withAlpha } from "@/modules/menu/theme";
 import { SignupForm } from "./signup-form";
 
@@ -24,6 +25,7 @@ export default async function SignupPage({ params }: Params) {
   const data = await load(slug);
   if (!data) notFound();
   const { tenant, menu, campaign } = data;
+  const legal = await readTenantLegal(tenant.id);
   const { config } = menu;
   const fg = config.textColor ?? readableForeground(config.backgroundColor);
   const muted = withAlpha(fg, 0.64);
@@ -85,7 +87,8 @@ export default async function SignupPage({ params }: Params) {
           slug={tenant.slug}
           tenantName={tenant.name}
           perkName={campaign?.perkName ?? null}
-          privacyUrl={campaign?.privacyUrl ?? null}
+          privacyUrl={legal.privacyUrl ?? campaign?.privacyUrl ?? null}
+          legal={{ name: legal.legalName, email: legal.legalEmail, address: legal.legalAddress, ready: legal.ready }}
           colors={{ fg, accent: config.accentColor, background: config.backgroundColor }}
         />
       </div>

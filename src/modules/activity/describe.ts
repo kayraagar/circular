@@ -173,6 +173,8 @@ export function describeActivity(item: ActivityItem): ActivityDescription {
       };
     case "team.venues_changed":
       return { verb: "ekip üyesinin mekan erişimini güncelledi", subject: { label: str(m.name) || "üye", href: "/settings" }, detail: str(m.venues) || undefined };
+    case "tenant.legal_updated":
+      return { verb: "veri sorumlusu bilgilerini güncelledi", subject: { label: "Yasal bilgiler", href: "/settings" } };
     default:
       return { verb: item.action };
   }

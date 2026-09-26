@@ -5,7 +5,9 @@ import { VENUE_TYPE_LABELS, labelOf } from "@/lib/domain";
 import { brand } from "@/config/brand";
 import { getTenantSettings } from "@/modules/settings/service";
 import { getTeam } from "@/modules/team/service";
+import { getTenantLegal } from "@/modules/legal/tenant-legal";
 import { TeamManager } from "./team-manager";
+import { LegalForm } from "./legal-form";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { Badge, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 
@@ -14,7 +16,7 @@ export const metadata: Metadata = { title: "Ayarlar" };
 export default async function SettingsPage() {
   const ctx = await requirePermission("settings.view");
   const { tenant, venues } = await getTenantSettings(ctx.service);
-  const team = await getTeam(ctx.service);
+  const [team, legal] = await Promise.all([getTeam(ctx.service), getTenantLegal(ctx.service)]);
 
   return (
     <>
@@ -60,6 +62,8 @@ export default async function SettingsPage() {
             ))}
           </ul>
         </Card>
+
+        <LegalForm legal={legal} />
 
         <TeamManager members={team.members} invites={team.invites} venues={team.venues} />
 

@@ -5,6 +5,7 @@ import { getAppContext, getSession } from "@/lib/context";
 import { homePathForRole, safeNextPath } from "@/lib/routes";
 import { firstParam, type SearchParams } from "@/lib/page";
 import { BrandMark } from "@/components/ui/brand-mark";
+import Link from "next/link";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Giriş" };
@@ -40,9 +41,20 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
             </div>
           </div>
         </div>
-        <p className="font-mono text-[11px] text-muted">
-          © {new Date().getFullYear()} {brand.name}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[11px] text-muted">
+          <span>
+            © {new Date().getFullYear()} {brand.name}
+          </span>
+          <Link href="/yasal/gizlilik" className="underline-offset-4 transition-colors hover:text-fg hover:underline">
+            Gizlilik
+          </Link>
+          <Link href="/yasal/kosullar" className="underline-offset-4 transition-colors hover:text-fg hover:underline">
+            Kullanım koşulları
+          </Link>
+          <Link href="/yasal/cerez" className="underline-offset-4 transition-colors hover:text-fg hover:underline">
+            Çerezler
+          </Link>
+        </div>
       </div>
       <div aria-hidden className="relative hidden overflow-hidden border-l border-line bg-surface lg:block">
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 800 900" preserveAspectRatio="xMidYMid slice">

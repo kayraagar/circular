@@ -85,6 +85,15 @@ model Tenant {
   instagramAccount     InstagramAccount?
   instagramAutoReplies InstagramAutoReply[]
   teamInvites          TeamInvite[]
+
+  // ─── Veri sorumlusu bilgileri (müşteriye açık formlarda ve ticari iletilerde gösterilir)
+  legalName    String? // ticaret unvanı
+  legalAddress String?
+  mersis       String?
+  verbisId     String?
+  legalEmail   String? // ilgili kişi başvuruları için
+  legalPhone   String?
+  privacyUrl   String? // işletmenin kendi aydınlatma metni adresi
 }
 
 model Venue {
