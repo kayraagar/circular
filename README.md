@@ -335,7 +335,12 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   davet üretilince eskisi geçersiz olur. Kilitlenme koruması: işletmede her zaman en az bir aktif sahip kalır, kimse kendi
   rolünü değiştiremez veya kendi erişimini kapatamaz. Erişim kapatılınca kişinin açık oturumları da düşer. Her işlem
   aktivite geçmişine yazılır.
-- **Raporlar** (soldaki **Raporlar** → `/reports`; işletme sahibi ve CRM yöneticisi): 7/30/90 günlük dönem, seçili mekana göre.
+- **Raporlar** (soldaki **Raporlar** → `/reports`; işletme sahibi ve CRM yöneticisi): 7/30/90 günlük hazır dönem veya
+  **özel tarih aralığı** (en fazla bir yıl; bitiş bugünden ileri olamaz), seçili mekana göre. Karşılaştırma her zaman
+  hemen öncesindeki aynı uzunluktaki dönemle yapılır. **CSV indirme**: özet, günlük seriler, etkinlikler, PR katkısı,
+  saat/gün dağılımı, kaynaklar, avantajlar ve kampanya sonuçları ayrı ayrı indirilir (noktalı virgül ayraç ve UTF-8 BOM ile
+  Türkçe Excel'de doğru açılır; oranlar tam sayı yüzde). İndirme ekrandaki dönemi ve mekan kapsamını aynen taşır, yetki
+  yeniden kontrol edilir.
   Kapıdan giren kişi, yeni müşteri, etkinlik kaydı ve avantaj kullanımı için önceki dönemle karşılaştırma; günlük giriş eğrisi,
   saate ve haftanın gününe göre yoğunluk (Istanbul saatiyle), biten etkinliklerde davetli → gerçek giriş oranı, PR katkısı,
   yeni müşteri kaynağı ve guest kanalı dağılımı, iletişim izni ve avantaj kullanımı, kanal bazında kampanya sonuçları.

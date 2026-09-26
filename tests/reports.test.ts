@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { db } from "@/lib/db";
 import { ForbiddenError } from "@/lib/errors";
 import { createCustomer } from "@/modules/customers/service";
-import { getReports, parseReportPeriod } from "@/modules/reports/service";
+import { getReports, parseReportPeriod, parseReportRange, MAX_RANGE_DAYS } from "@/modules/reports/service";
+import { parseReportSet, reportCsv } from "@/modules/reports/csv";
 import { makeTenant, resetDb } from "./helpers";
 
 type T = Awaited<ReturnType<typeof makeTenant>>;
@@ -156,6 +157,51 @@ describe("Raporlar", () => {
     const b = await getReports(B.owner, { periodDays: 7 }, NOW);
     assert.equal(b.totals.admitted.current, 9, "B işletmesi yalnızca kendi verisini görür");
     assert.equal(b.promoters.length, 0);
+  });
+
+  test("özel tarih aralığı: sınırlar iki taraflı uygulanır", async () => {
+    // 9–11 Ekim: Cem 3, Berk 1, Ali 2 → 6 kişi. Önceki 3 gün (6–8 Ekim) Eski Gece'nin 5 kişisi.
+    const inner = parseReportRange({ from: "2026-10-09", to: "2026-10-11" }, NOW);
+    assert.deepEqual([inner.days, inner.fromDay, inner.toDay, inner.preset], [3, "2026-10-09", "2026-10-11", null]);
+    const r = await getReports(A.owner, { range: inner }, NOW);
+    assert.deepEqual(r.totals.admitted, { current: 6, previous: 5 });
+    assert.equal(r.series.visits.length, 3);
+    assert.deepEqual([r.series.visits[0].day, r.series.visits[2].day], ["2026-10-09", "2026-10-11"]);
+
+    // Üst sınır: 6–9 Ekim aralığı 10–11 Ekim girişlerini DIŞARIDA bırakır
+    const older = await getReports(A.owner, { range: parseReportRange({ from: "2026-10-06", to: "2026-10-09" }, NOW) }, NOW);
+    assert.equal(older.totals.admitted.current, 8, "Eski Gece 5 + Bahçe Akşamı 3");
+    assert.equal(older.events.length, 1, "aralık dışındaki etkinlik listelenmez");
+  });
+
+  test("aralık çözümleme: geçersiz girdi, gelecek tarih ve bir yıl sınırı", () => {
+    assert.equal(parseReportRange({ period: "7" }, NOW).preset, 7, "hazır dönem korunur");
+    assert.equal(parseReportRange({ from: "bozuk", to: "2026-10-01" }, NOW).preset, 30, "geçersiz girdide varsayılana düşer");
+    assert.equal(parseReportRange({ from: "2026-10-10", to: "2026-12-31" }, NOW).toDay, "2026-10-15", "bitiş bugünden ileri olamaz");
+    assert.equal(parseReportRange({ from: "2026-10-12", to: "2026-10-10" }, NOW).days, 1, "ters aralık tek güne iner");
+    assert.equal(parseReportRange({ from: "2000-01-01", to: "2026-10-15" }, NOW).days, MAX_RANGE_DAYS, "en fazla bir yıl");
+  });
+
+  test("CSV: Excel uyumlu ayraç, kaçış ve gerçek sayılar", async () => {
+    const r = await getReports(A.owner, { periodDays: 7 }, NOW);
+    assert.equal(parseReportSet("bilinmeyen"), "ozet", "tanınmayan küme özete düşer");
+
+    const ozet = reportCsv("ozet", r);
+    assert.match(ozet.filename, /^circular-ozet-\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/);
+    const lines = ozet.body.split("\r\n");
+    assert.equal(lines[0], "Ölçüm;Bu dönem;Önceki dönem");
+    assert.ok(lines.includes("Kapıdan giren kişi;6;5"));
+    assert.ok(lines.includes("Geliş oranı (%);60;"));
+
+    const gunluk = reportCsv("gunluk", r).body.split("\r\n");
+    assert.equal(gunluk[0], "Gün;Kapıdan giren kişi;Yeni müşteri;Etkinlik kaydı (kişi)");
+    assert.equal(gunluk.length, 8, "başlık + 7 gün");
+
+    // Ayraç içeren ad tırnaklanır
+    await db.event.update({ where: { id: ids.mainEvent }, data: { name: 'Cuma; "özel" gece' } });
+    const events = reportCsv("etkinlikler", await getReports(A.owner, { periodDays: 7 }, NOW)).body;
+    assert.ok(events.includes('"Cuma; ""özel"" gece"'), "noktalı virgül ve tırnak kaçışlanır");
+    await db.event.update({ where: { id: ids.mainEvent }, data: { name: "Cuma Gecesi" } });
   });
 
   test("uzun dönemde eski kayıtlar da sayılır; kampanya yoksa liste boş", async () => {

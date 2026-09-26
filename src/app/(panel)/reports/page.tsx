@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requirePermission } from "@/lib/context";
-import { formatDate } from "@/lib/datetime";
+import { formatDate, localDayKey } from "@/lib/datetime";
 import { firstParam, type SearchParams } from "@/lib/page";
 import { CHANNELS, CHANNEL_LABELS } from "@/lib/domain";
 import { CAMPAIGN_CHANNEL_LABELS } from "@/modules/campaigns/rules";
-import { getReports, parseReportPeriod, REPORT_PERIODS } from "@/modules/reports/service";
+import { getReports, parseReportRange, REPORT_PERIODS } from "@/modules/reports/service";
+import { REPORT_SETS, REPORT_SET_LABELS } from "@/modules/reports/csv";
 import { CheckInRing } from "@/components/guests/checkin-ring";
 import { AreaChart, BarChart, CHART_COLORS, Donut, KpiTile, RatioRows, formatNumber, formatPercent } from "@/components/reports/charts";
 import { Card, CardHeader, PageHeader } from "@/components/ui/primitives";
@@ -15,8 +16,17 @@ export const metadata: Metadata = { title: "Raporlar" };
 /** Raporlar: gerçek girişler, kayıtlar, müşteri kazanımı, PR katkısı ve kampanya sonuçları. */
 export default async function ReportsPage({ searchParams }: { searchParams: SearchParams }) {
   const ctx = await requirePermission("reports.view");
-  const period = parseReportPeriod(firstParam((await searchParams).period));
-  const r = await getReports(ctx.service, { periodDays: period, venueId: ctx.activeVenue?.id ?? null });
+  const params = await searchParams;
+  const range = parseReportRange({
+    period: firstParam(params.period),
+    from: firstParam(params.from),
+    to: firstParam(params.to),
+  });
+  const r = await getReports(ctx.service, { range, venueId: ctx.activeVenue?.id ?? null });
+  const period = range.days;
+  const today = localDayKey(new Date());
+  // Dışa aktarma bağlantıları ekrandaki dönemi aynen taşır.
+  const scope = range.preset ? `period=${range.preset}` : `from=${range.fromDay}&to=${range.toDay}`;
   const venueLabel = ctx.activeVenue?.name ?? (ctx.venues.length > 1 ? "Tüm mekanlar" : (ctx.venues[0]?.name ?? ""));
   const t = r.totals;
 
@@ -26,21 +36,60 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
         eyebrow={`${ctx.tenant.name} · ${venueLabel}`}
         title="Raporlar"
         description={`${formatDate(r.from)} – ${formatDate(r.to)} · sayılar kayıtlardan anlık hesaplanır`}
-        actions={
-          <nav aria-label="Dönem" className="inline-flex rounded-field border border-line p-0.5">
-            {REPORT_PERIODS.map((p) => (
-              <Link
-                key={p}
-                href={`/reports?period=${p}`}
-                aria-current={p === period ? "page" : undefined}
-                className={`rounded-lg px-3 py-1.5 font-mono text-[12px] transition-colors ${p === period ? "bg-raised text-fg" : "text-muted hover:text-fg"}`}
-              >
-                {p} gün
-              </Link>
-            ))}
-          </nav>
-        }
       />
+
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <nav aria-label="Dönem" className="inline-flex rounded-field border border-line p-0.5">
+          {REPORT_PERIODS.map((p) => (
+            <Link
+              key={p}
+              href={`/reports?period=${p}`}
+              aria-current={p === range.preset ? "page" : undefined}
+              className={`rounded-lg px-3 py-1.5 font-mono text-[12px] transition-colors ${p === range.preset ? "bg-raised text-fg" : "text-muted hover:text-fg"}`}
+            >
+              {p} gün
+            </Link>
+          ))}
+        </nav>
+
+        {/* Özel aralık: JavaScript gerekmeyen düz GET formu */}
+        <form method="get" action="/reports" className="flex flex-wrap items-center gap-2">
+          <label htmlFor="range-from" className="sr-only">
+            Başlangıç tarihi
+          </label>
+          <input id="range-from" type="date" name="from" defaultValue={range.fromDay} max={today} className="input !h-9 w-auto !py-1" />
+          <span aria-hidden className="text-muted">
+            –
+          </span>
+          <label htmlFor="range-to" className="sr-only">
+            Bitiş tarihi
+          </label>
+          <input id="range-to" type="date" name="to" defaultValue={range.toDay} max={today} className="input !h-9 w-auto !py-1" />
+          <button
+            type="submit"
+            className="inline-flex h-9 items-center rounded-field border border-line px-3 text-[13px] text-fg transition-colors hover:border-line-strong hover:bg-raised"
+          >
+            Uygula
+          </button>
+        </form>
+
+        <details className="relative ml-auto">
+          <summary className="inline-flex h-9 cursor-pointer list-none items-center rounded-field border border-line px-3 text-[13px] text-fg transition-colors hover:border-line-strong hover:bg-raised">
+            CSV indir
+          </summary>
+          <div className="absolute right-0 z-20 mt-2 w-56 rounded-field border border-line bg-surface p-1 shadow-[0_18px_40px_-16px_rgb(0_0_0/0.9)]">
+            {REPORT_SETS.map((set) => (
+              <a
+                key={set}
+                href={`/reports/export?set=${set}&${scope}`}
+                className="block rounded-lg px-3 py-2 text-[13px] text-muted transition-colors hover:bg-raised hover:text-fg"
+              >
+                {REPORT_SET_LABELS[set]}
+              </a>
+            ))}
+          </div>
+        </details>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiTile
@@ -79,7 +128,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
         <Card className="lg:col-span-2">
           <CardHeader title="Günlük giriş" description="Kapıda doğrulanan kişi sayısı" />
           <div className="px-5 pt-2 pb-5">
-            <AreaChart id="visits" points={r.series.visits} ariaLabel={`Son ${period} günde günlük giriş sayısı`} />
+            <AreaChart id="visits" points={r.series.visits} ariaLabel={`Dönem içinde günlük giriş sayısı (${period} gün)`} />
           </div>
         </Card>
         <Card className="flex flex-col">
@@ -149,7 +198,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
 
       <div className="mt-4 grid items-start gap-4 lg:grid-cols-3">
         <Card>
-          <CardHeader title="Yeni müşteri kaynağı" description={`${period} günde eklenenler`} />
+          <CardHeader title="Yeni müşteri kaynağı" description="Dönemde eklenenler" />
           <div className="p-5">
             <Donut slices={r.sources} centerValue={formatNumber(t.newCustomers.current)} centerLabel="yeni kişi" />
           </div>

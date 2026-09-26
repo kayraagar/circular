@@ -69,7 +69,7 @@ export function AreaChart({
       <figcaption className="mt-2 flex justify-between text-[12px] text-muted" data-numeric>
         <span>{points[0].label}</span>
         <span>
-          en yüksek {formatNumber(max)} · bugün {formatNumber(last.value)}
+          en yüksek {formatNumber(max)} · {last.label} {formatNumber(last.value)}
         </span>
         <span>{last.label}</span>
       </figcaption>

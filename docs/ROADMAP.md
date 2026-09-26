@@ -138,8 +138,11 @@ kaydı ve avantaj kullanımı önceki dönemle karşılaştırılır; günlük s
 davetli → gerçek giriş, PR katkısı, kazanım kaynağı, guest kanalı, izin durumu ve kanal bazında kampanya sonuçları.
 Grafikler bağımlılıksız SVG.
 
-Açık kalanlar: dışa aktarma (CSV/PDF), kampanya dönüşümü (kampanya sonrası ziyaret ilişkisi), menü görüntüleme ölçümü,
-özel tarih aralığı ve rapor e-postası.
+✔ Özel tarih aralığı ve CSV dışa aktarma eklendi (dokuz ayrı veri kümesi; noktalı virgül + UTF-8 BOM ile Türkçe Excel uyumlu).
+
+Açık kalanlar: PDF çıktısı (tarayıcının yazdır menüsü kullanılabilir, baskıya özel stil yok), rapor e-postası
+(Brevo bağlanınca), kampanya dönüşümü (kampanya sonrası ziyaret ilişkisi) ve menü görüntüleme ölçümü — son ikisi
+bilinçli olarak ölçülmüyor.
 
 ## Faz 3 — WhatsApp Club
 

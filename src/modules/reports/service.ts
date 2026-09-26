@@ -21,6 +21,22 @@ export function parseReportPeriod(value: unknown): ReportPeriod {
   return (REPORT_PERIODS as readonly number[]).includes(n) ? (n as ReportPeriod) : 30;
 }
 
+/** Özel aralıkta en fazla bir yıl; daha uzunu hem grafiği hem sorguyu anlamsız büyütür. */
+export const MAX_RANGE_DAYS = 366;
+
+export type ReportRange = {
+  /** Dönemin ilk günü (Istanbul gün başı) */
+  from: Date;
+  /** Dönemin bitişi — dışlayan üst sınır */
+  toExclusive: Date;
+  days: number;
+  /** "YYYY-MM-DD" — dahil */
+  fromDay: string;
+  toDay: string;
+  /** Hazır dönem seçildiyse gün sayısı; özel aralıkta null */
+  preset: ReportPeriod | null;
+};
+
 const DAY_MS = 24 * 3600 * 1000;
 
 const parts = new Intl.DateTimeFormat("en-GB", {
@@ -46,16 +62,64 @@ function zoned(date: Date) {
   };
 }
 
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** "YYYY-MM-DD" → o günün Istanbul gün başı. Türkiye yaz saati uygulamadığı için gün ekleme 24 saattir. */
+function dayStart(day: string): Date | null {
+  return DAY_RE.test(day) ? parseLocalDateTime(`${day}T00:00`) : null;
+}
+
+function addDays(day: string, count: number): string {
+  const start = dayStart(day);
+  return start ? zoned(new Date(start.getTime() + count * DAY_MS)).day : day;
+}
+
+function daysBetween(fromDay: string, toDay: string): number {
+  const a = dayStart(fromDay);
+  const b = dayStart(toDay);
+  if (!a || !b) return 1;
+  return Math.round((b.getTime() - a.getTime()) / DAY_MS) + 1;
+}
+
+function rangeOfDays(fromDay: string, toDay: string): ReportRange {
+  const from = dayStart(fromDay)!;
+  const toExclusive = dayStart(addDays(toDay, 1))!;
+  return { from, toExclusive, days: daysBetween(fromDay, toDay), fromDay, toDay, preset: null };
+}
+
+/** Hazır dönem: bugün dahil son N gün. */
+export function rangeOfPeriod(days: ReportPeriod, now: Date): ReportRange {
+  const toDay = zoned(now).day;
+  const range = rangeOfDays(addDays(toDay, -(days - 1)), toDay);
+  return { ...range, preset: days };
+}
+
+/**
+ * Adres çubuğundan dönem: ?from=&to= verilmişse özel aralık, yoksa ?period=7|30|90.
+ * Bitiş bugünden ileri olamaz; aralık bir yılı aşarsa son bir yıl alınır.
+ */
+export function parseReportRange(params: { period?: string | null; from?: string | null; to?: string | null }, now = new Date()): ReportRange {
+  const today = zoned(now).day;
+  const from = params.from && DAY_RE.test(params.from) ? params.from : null;
+  const to = params.to && DAY_RE.test(params.to) ? params.to : null;
+  if (!from || !to) return rangeOfPeriod(parseReportPeriod(params.period), now);
+
+  const end = to > today ? today : to;
+  const start = from > end ? end : from;
+  const span = daysBetween(start, end);
+  return rangeOfDays(span > MAX_RANGE_DAYS ? addDays(end, -(MAX_RANGE_DAYS - 1)) : start, end);
+}
+
 export type SeriesPoint = { day: string; label: string; value: number };
 export type Bucket = { label: string; value: number };
 export type Delta = { current: number; previous: number };
 
 const dayLabel = new Intl.DateTimeFormat("tr-TR", { timeZone: APP_TIME_ZONE, day: "numeric", month: "short" });
 
-/** Dönem için boş gün serisi (bugün dahil, eski → yeni). */
-function emptySeries(days: number, now: Date): SeriesPoint[] {
-  return Array.from({ length: days }, (_, i) => {
-    const date = new Date(now.getTime() - (days - 1 - i) * DAY_MS);
+/** Aralık için boş gün serisi (eski → yeni). */
+function emptySeries(range: ReportRange): SeriesPoint[] {
+  return Array.from({ length: range.days }, (_, i) => {
+    const date = new Date(range.from.getTime() + i * DAY_MS);
     return { day: zoned(date).day, label: dayLabel.format(date), value: 0 };
   });
 }
@@ -71,13 +135,19 @@ function fill(series: SeriesPoint[], rows: { at: Date; value: number }[]): Serie
 
 export type ReportData = Awaited<ReturnType<typeof getReports>>;
 
-export async function getReports(ctx: ServiceContext, opts: { periodDays: ReportPeriod; venueId?: string | null }, now = new Date()) {
+export async function getReports(
+  ctx: ServiceContext,
+  opts: { periodDays?: ReportPeriod; range?: ReportRange; venueId?: string | null },
+  now = new Date(),
+) {
   assertCan(ctx, "reports.view");
-  const days = opts.periodDays;
   // Dönem, Istanbul gününe göre başlar (sunucunun saat dilimi ne olursa olsun).
-  const startOfDay = (date: Date) => parseLocalDateTime(`${zoned(date).day}T00:00`) ?? date;
-  const from = startOfDay(new Date(now.getTime() - (days - 1) * DAY_MS));
-  const prevFrom = startOfDay(new Date(from.getTime() - days * DAY_MS));
+  const range = opts.range ?? rangeOfPeriod(opts.periodDays ?? 30, now);
+  const days = range.days;
+  const from = range.from;
+  const to = range.toExclusive;
+  // Karşılaştırma: hemen öncesindeki aynı uzunlukta dönem.
+  const prevFrom = dayStart(addDays(range.fromDay, -days))!;
 
   const venueId = opts.venueId && canAccessVenue(ctx, opts.venueId) ? opts.venueId : null;
   const eventWhere: Prisma.EventWhereInput = { tenantId: ctx.tenantId, ...venueScope(ctx), ...(venueId ? { venueId } : {}) };
@@ -86,27 +156,27 @@ export async function getReports(ctx: ServiceContext, opts: { periodDays: Report
   const [checkIns, prevCheckIns, newCustomers, prevNewCustomerCount, registrations, prevRegistrationCount, redemptions, prevRedemptionCount, endedEvents, consents, revoked, campaignMessages] =
     await Promise.all([
       db.checkIn.findMany({
-        where: { tenantId: ctx.tenantId, checkedInAt: { gte: from }, event: eventWhere },
+        where: { tenantId: ctx.tenantId, checkedInAt: { gte: from, lt: to }, event: eventWhere },
         select: { checkedInAt: true, admittedCount: true, customerId: true },
       }),
       db.checkIn.aggregate({
         where: { tenantId: ctx.tenantId, checkedInAt: { gte: prevFrom, lt: from }, event: eventWhere },
         _sum: { admittedCount: true },
       }),
-      db.customer.findMany({ where: { ...customerBase, createdAt: { gte: from } }, select: { createdAt: true, source: true } }),
+      db.customer.findMany({ where: { ...customerBase, createdAt: { gte: from, lt: to } }, select: { createdAt: true, source: true } }),
       db.customer.count({ where: { ...customerBase, createdAt: { gte: prevFrom, lt: from } } }),
       db.eventRegistration.findMany({
-        where: { tenantId: ctx.tenantId, accessStatus: "ACTIVE", createdAt: { gte: from }, event: eventWhere },
+        where: { tenantId: ctx.tenantId, accessStatus: "ACTIVE", createdAt: { gte: from, lt: to }, event: eventWhere },
         select: { createdAt: true, partySize: true, channel: true, prMembershipId: true, checkIns: { select: { admittedCount: true } } },
       }),
       db.eventRegistration.count({ where: { tenantId: ctx.tenantId, accessStatus: "ACTIVE", createdAt: { gte: prevFrom, lt: from }, event: eventWhere } }),
       db.perkRedemption.findMany({
-        where: { tenantId: ctx.tenantId, redeemedAt: { gte: from }, ...(venueId ? { perk: { OR: [{ venueId }, { venueId: null }] } } : {}) },
+        where: { tenantId: ctx.tenantId, redeemedAt: { gte: from, lt: to }, ...(venueId ? { perk: { OR: [{ venueId }, { venueId: null }] } } : {}) },
         select: { redeemedAt: true, perk: { select: { name: true } } },
       }),
       db.perkRedemption.count({ where: { tenantId: ctx.tenantId, redeemedAt: { gte: prevFrom, lt: from } } }),
       db.event.findMany({
-        where: { ...eventWhere, status: "PUBLISHED", endsAt: { gte: from, lte: now } },
+        where: { ...eventWhere, status: "PUBLISHED", endsAt: { gte: from, lt: to < now ? to : new Date(now.getTime() + 1) } },
         select: {
           id: true,
           name: true,
@@ -120,17 +190,17 @@ export async function getReports(ctx: ServiceContext, opts: { periodDays: Report
         take: 12,
       }),
       db.contactConsent.groupBy({ by: ["channel", "status"], where: { tenantId: ctx.tenantId, customer: { archivedAt: null } }, _count: { _all: true } }),
-      db.contactConsent.count({ where: { tenantId: ctx.tenantId, status: "REVOKED", revokedAt: { gte: from } } }),
+      db.contactConsent.count({ where: { tenantId: ctx.tenantId, status: "REVOKED", revokedAt: { gte: from, lt: to } } }),
       db.campaignMessage.findMany({
-        where: { tenantId: ctx.tenantId, campaign: { mode: "LIVE" }, createdAt: { gte: from } },
+        where: { tenantId: ctx.tenantId, campaign: { mode: "LIVE" }, createdAt: { gte: from, lt: to } },
         select: { status: true, openedAt: true, campaign: { select: { channel: true } } },
       }),
     ]);
 
   // ── Günlük seriler
-  const visitSeries = fill(emptySeries(days, now), checkIns.map((c) => ({ at: c.checkedInAt, value: c.admittedCount })));
-  const customerSeries = fill(emptySeries(days, now), newCustomers.map((c) => ({ at: c.createdAt, value: 1 })));
-  const registrationSeries = fill(emptySeries(days, now), registrations.map((r) => ({ at: r.createdAt, value: r.partySize })));
+  const visitSeries = fill(emptySeries(range), checkIns.map((c) => ({ at: c.checkedInAt, value: c.admittedCount })));
+  const customerSeries = fill(emptySeries(range), newCustomers.map((c) => ({ at: c.createdAt, value: 1 })));
+  const registrationSeries = fill(emptySeries(range), registrations.map((r) => ({ at: r.createdAt, value: r.partySize })));
 
   // ── Saat ve gün dağılımı (yalnızca gerçek girişler)
   const hourly: Bucket[] = Array.from({ length: 24 }, (_, h) => ({ label: `${String(h).padStart(2, "0")}`, value: 0 }));
@@ -225,8 +295,9 @@ export async function getReports(ctx: ServiceContext, opts: { periodDays: Report
 
   return {
     periodDays: days,
+    range,
     from,
-    to: now,
+    to: to < now ? new Date(to.getTime() - 1) : now,
     totals: {
       admitted: { current: admitted, previous: prevCheckIns._sum.admittedCount ?? 0 } satisfies Delta,
       newCustomers: { current: newCustomers.length, previous: prevNewCustomerCount } satisfies Delta,
