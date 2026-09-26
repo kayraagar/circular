@@ -158,6 +158,21 @@ export function describeActivity(item: ActivityItem): ActivityDescription {
       const verb = op === "created" ? "menüye ürün ekledi" : op === "deleted" ? "menüden ürün sildi" : "menü ürününü güncelledi";
       return { verb, subject: { label: str(m.itemName) || "ürün", href: "/menu" }, detail: str(m.categoryName) || undefined };
     }
+    case "team.invited":
+      return { verb: "ekibe davet gönderdi", subject: { label: str(m.email) || "yeni üye", href: "/settings" }, detail: str(m.roleLabel) || undefined };
+    case "team.invite_revoked":
+      return { verb: "daveti iptal etti", subject: { label: str(m.email) || "davet", href: "/settings" } };
+    case "team.joined":
+      return { verb: "ekibe katıldı", subject: { label: str(m.name) || "yeni üye", href: "/settings" }, detail: str(m.roleLabel) || undefined };
+    case "team.role_changed":
+      return { verb: "ekip üyesinin rolünü değiştirdi", subject: { label: str(m.name) || "üye", href: "/settings" }, detail: str(m.roleLabel) || undefined };
+    case "team.status_changed":
+      return {
+        verb: m.status === "ACTIVE" ? "ekip üyesini yeniden etkinleştirdi" : "ekip üyesinin erişimini kapattı",
+        subject: { label: str(m.name) || "üye", href: "/settings" },
+      };
+    case "team.venues_changed":
+      return { verb: "ekip üyesinin mekan erişimini güncelledi", subject: { label: str(m.name) || "üye", href: "/settings" }, detail: str(m.venues) || undefined };
     default:
       return { verb: item.action };
   }

@@ -177,7 +177,9 @@ Açık kalanlar:
 ## Platform ve operasyon
 
 - **Platform yöneticisi konsolu:** tenant listesi, askıya alma; müşteri verisine destek erişimi yalnızca süreli ve denetim kaydıyla.
-- **Ekip yönetimi:** davet, rol değiştirme, üyelik devre dışı bırakma (Ayarlar şu an salt okunur).
+- **Ekip yönetimi:** ✔ tamamlandı — Ayarlar ekranından tek kullanımlık davet bağlantısı, rol değiştirme, mekan erişimi
+  ve erişim kapatma. Açık kalanlar: şifre sıfırlama/unuttum akışı, davetin e-postayla gönderilmesi (Brevo bağlanınca),
+  üyelik silme (şu an yalnızca erişim kapatılır) ve mekan ekleme/düzenleme.
 - **Mekan yönetimi:** mekan ekleme/düzenleme, logo ve görseller (dosya depolama gerekir).
 - **KVKK:** müşteri silme/anonimleştirme talebi (arşivden farklı), aktivite metadata'sındaki adların temizlenmesi, veri dışa aktarma.
 - **Hız sınırı:** giriş sınırlayıcısı bellek içi; çok instance'lı dağıtımda Redis/DB tabanlı olmalı.

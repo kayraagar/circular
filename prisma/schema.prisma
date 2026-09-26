@@ -13,7 +13,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // Uygulama havuzlu ("pooled") bağlantıyı, migration'lar doğrudan bağlantıyı kullanır.
   // Yerelde ikisi de aynı adrestir.
   url       = env("DATABASE_URL")
@@ -84,6 +84,7 @@ model Tenant {
   emailTestRecipients  EmailTestRecipient[]
   instagramAccount     InstagramAccount?
   instagramAutoReplies InstagramAutoReply[]
+  teamInvites          TeamInvite[]
 }
 
 model Venue {
@@ -933,4 +934,27 @@ model InstagramReplyLog {
   rule InstagramAutoReply @relation(fields: [ruleId, tenantId], references: [id, tenantId], onDelete: Cascade)
 
   @@index([tenantId, ruleId, senderHash, createdAt])
+}
+
+/// Ekip daveti: tek kullanımlık link. Ham kod saklanmaz, yalnızca SHA-256 özeti tutulur.
+/// Kabul edilince kullanıcı hesabı (yoksa) ve üyelik oluşur; link bir daha çalışmaz.
+model TeamInvite {
+  id              String    @id @default(cuid())
+  tenantId        String
+  email           String // küçük harfe normalize
+  name            String
+  role            String // OWNER_ADMIN | CRM_MANAGER | PR | DOOR | WAITER
+  venueIds        String[] // boş = işletmenin tüm mekanları
+  tokenHash       String    @unique
+  invitedByUserId String?
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  acceptedUserId  String?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([id, tenantId])
+  @@index([tenantId, email])
 }

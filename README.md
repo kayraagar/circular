@@ -327,6 +327,14 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   müşteri adı, telefonu, e-postası gönderilmez; kişi ve PR cevaplarında model hiç devreye girmez. Modelin cümlesinde
   panelin hesaplamadığı bir sayı varsa cümle atılır ve hazır metin kullanılır. Anahtar yoksa veya modele ulaşılamazsa
   asistan anahtar kelime moduna düşer (Türkçe ek ve ünsüz yumuşaması toleranslı).
+- **Ekip yönetimi** (soldaki **Ayarlar**; yalnızca işletme sahibi): ekip üyelerini davet eder, rollerini ve mekan
+  erişimlerini değiştirir, erişimlerini kapatıp açarsınız. **Davet e-posta göndermez:** tek kullanımlık bir bağlantı
+  üretilir, siz iletirsiniz. Kişi bağlantıyı açıp kendi şifresini belirler (en az 10 karakter); o e-postayla zaten hesabı
+  varsa mevcut şifresiyle katılır, yani bağlantı tek başına erişim vermez. Bağlantının ham kodu veritabanında saklanmaz
+  (yalnızca SHA-256 özeti), 7 gün geçerlidir, bir kez kullanılır ve yalnızca üretildiği anda gösterilir; aynı kişiye yeni
+  davet üretilince eskisi geçersiz olur. Kilitlenme koruması: işletmede her zaman en az bir aktif sahip kalır, kimse kendi
+  rolünü değiştiremez veya kendi erişimini kapatamaz. Erişim kapatılınca kişinin açık oturumları da düşer. Her işlem
+  aktivite geçmişine yazılır.
 - **Raporlar** (soldaki **Raporlar** → `/reports`; işletme sahibi ve CRM yöneticisi): 7/30/90 günlük dönem, seçili mekana göre.
   Kapıdan giren kişi, yeni müşteri, etkinlik kaydı ve avantaj kullanımı için önceki dönemle karşılaştırma; günlük giriş eğrisi,
   saate ve haftanın gününe göre yoğunluk (Istanbul saatiyle), biten etkinliklerde davetli → gerçek giriş oranı, PR katkısı,
@@ -341,7 +349,7 @@ ekip/mekan yönetimi · platform konsolu.
 Ayrıntılar ve açık kararlar: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ### Bilinen eksikler
-- Ayarlar salt okunur: ekip daveti, rol değiştirme ve mekan ekleme yok (demo verisi seed ile gelir).
+- Ayarlarda mekan ekleme/düzenleme yok (işletme ve mekan bilgileri salt okunur; ekip yönetimi yapılabilir).
 - Şifre sıfırlama ve e-posta doğrulama yok.
 - Giriş hız sınırlayıcısı bellek içidir; tek süreçli dağıtım içindir.
 - Etkinlik guest listesi sayfalanmıyor (yüzlerce kayıt için uygun, binlerce için sayfalama gerekir).

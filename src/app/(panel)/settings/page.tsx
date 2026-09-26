@@ -1,25 +1,27 @@
 import type { Metadata } from "next";
 import { requirePermission } from "@/lib/context";
-import { formatDate, formatRelative } from "@/lib/datetime";
-import { ROLE_LABELS, VENUE_TYPE_LABELS, labelOf } from "@/lib/domain";
+import { formatDate } from "@/lib/datetime";
+import { VENUE_TYPE_LABELS, labelOf } from "@/lib/domain";
 import { brand } from "@/config/brand";
 import { getTenantSettings } from "@/modules/settings/service";
+import { getTeam } from "@/modules/team/service";
+import { TeamManager } from "./team-manager";
 import { BrandMark } from "@/components/ui/brand-mark";
-import { Avatar, Badge, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
+import { Badge, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 
 export const metadata: Metadata = { title: "Ayarlar" };
 
 export default async function SettingsPage() {
   const ctx = await requirePermission("settings.view");
-  const { tenant, venues, members } = await getTenantSettings(ctx.service);
-  const now = new Date();
+  const { tenant, venues } = await getTenantSettings(ctx.service);
+  const team = await getTeam(ctx.service);
 
   return (
     <>
       <PageHeader
         eyebrow={tenant.name}
         title="Ayarlar"
-        description="İşletme, mekan ve ekip bilgileri. Bu aşamada salt okunurdur; davet ve düzenleme sonraki fazda eklenecek."
+        description="İşletme ve mekan bilgileri salt okunurdur. Ekip üyelerini buradan davet eder, rollerini ve mekan erişimini yönetirsiniz."
       />
       <div className="space-y-6">
         <Card>
@@ -59,30 +61,7 @@ export default async function SettingsPage() {
           </ul>
         </Card>
 
-        <Card>
-          <CardHeader title="Ekip" description="Roller sunucu tarafında uygulanır." />
-          <ul>
-            {members.map((m) => (
-              <li key={m.id} className="flex flex-col gap-2 border-line px-5 py-3.5 sm:flex-row sm:items-center [&+li]:border-t">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <Avatar name={m.user.name} size={32} />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-fg">{m.user.name}</p>
-                    <p className="truncate text-xs text-muted">{m.user.email}</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 pl-11 sm:pl-0">
-                  <Badge>{labelOf(ROLE_LABELS, m.role)}</Badge>
-                  {m.venueAccess.length > 0 && <Badge tone="muted">{m.venueAccess.map((a) => a.venue.name).join(", ")}</Badge>}
-                  {m.status !== "ACTIVE" && <Badge tone="negative">Devre dışı</Badge>}
-                  <span className="text-xs text-muted">
-                    {m.user.lastLoginAt ? `Son giriş ${formatRelative(m.user.lastLoginAt, now)}` : "Henüz giriş yapmadı"}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <TeamManager members={team.members} invites={team.invites} venues={team.venues} />
 
         <Card>
           <CardHeader title="Marka" />

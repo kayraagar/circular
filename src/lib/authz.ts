@@ -21,8 +21,8 @@ const PERMISSIONS = {
   // AI Asistan: yalnızca okur ve taslak önerir; gönderim/düzenleme yetkisi vermez.
   "assistant.use": ["OWNER_ADMIN", "CRM_MANAGER"],
   "settings.view": ["OWNER_ADMIN"],
-  // Hazırlanıyor modülleri (yalnızca bilgi sayfaları)
-  "modules.preview": ["OWNER_ADMIN", "CRM_MANAGER"],
+  // Ekip yönetimi: davet, rol değiştirme, mekan atama, üyeliği pasifleştirme
+  "team.manage": ["OWNER_ADMIN"],
   // Güvenli QR
   "passes.issue": ["OWNER_ADMIN", "CRM_MANAGER"],
   "door.checkin": ["OWNER_ADMIN", "DOOR"],

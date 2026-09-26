@@ -45,7 +45,13 @@ export type ActivityAction =
   | "email.settings_updated"
   | "instagram.connected"
   | "instagram.disconnected"
-  | "instagram.rule_changed";
+  | "instagram.rule_changed"
+  | "team.invited"
+  | "team.invite_revoked"
+  | "team.joined"
+  | "team.role_changed"
+  | "team.status_changed"
+  | "team.venues_changed";
 
 export type ActivityInput = {
   action: ActivityAction;
@@ -66,7 +72,9 @@ export type ActivityInput = {
     | "campaign"
     | "sms"
     | "email"
-    | "instagram";
+    | "instagram"
+    | "membership"
+    | "team_invite";
   entityId: string;
   customerId?: string | null;
   eventId?: string | null;
