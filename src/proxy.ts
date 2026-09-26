@@ -9,7 +9,7 @@ import { SESSION_COOKIE } from "@/lib/auth/constants";
 // /m/[slug]: müşteriye açık menü, menüden kayıt ve menü görselleri · /davet/[kod]: PR davet linkiyle etkinlik kaydı
 // /ekip/[token]: ekip davet bağlantısı (kişi kendi şifresini belirler) · /yasal: yasal metinler
 // /api/webhooks/: sağlayıcı bildirimleri (oturum yok; imza/anahtar ile doğrulanır) · /abonelik/: e-postadan abonelikten çıkma
-const PUBLIC_PREFIXES = ["/login", "/pass/", "/q/", "/m/", "/davet/", "/ekip/", "/yasal", "/api/webhooks/", "/abonelik/", "/api/abonelik/"];
+const PUBLIC_PREFIXES = ["/login", "/pass/", "/q/", "/m/", "/davet/", "/ekip/", "/yasal", "/api/webhooks/", "/abonelik/", "/api/abonelik/", "/robots.txt"];
 
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;

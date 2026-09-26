@@ -6,7 +6,13 @@ import { readInvite } from "@/modules/team/service";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { AcceptInviteForm } from "./accept-form";
 
-export const metadata: Metadata = { title: "Ekip daveti" };
+// Davet bağlantısı tek kullanımlık bir yetkidir: dizine eklenmemeli ve
+// dış bağlantılara Referer başlığıyla sızmamalı (diğer token'lı sayfalarla aynı kural).
+export const metadata: Metadata = {
+  title: "Ekip daveti",
+  referrer: "no-referrer",
+  robots: { index: false, follow: false },
+};
 
 /** Herkese açık: ekip davet bağlantısı. Kişi kendi şifresini belirleyip ekibe katılır. */
 export default async function TeamInvitePage({ params }: { params: Promise<{ token: string }> }) {

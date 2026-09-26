@@ -411,6 +411,8 @@ Ayrıntılar ve açık kararlar: [docs/ROADMAP.md](docs/ROADMAP.md).
   Talimat düzenleme, PR'ın yanıt/not yazması ve zamanlanmış talimat yok. PR hesabı panelden oluşturulamaz
   (ekip yönetimi hazırlanıyor).
 - Müşteri kalıcı silme/anonimleştirme (KVKK talebi) ve CSV içe/dışa aktarma yok.
+- Token taşıyan adresler (giriş QR'ı, avantaj QR'ı, PR daveti, ekip daveti, abonelikten çıkma) arama motorlarına kapalıdır:
+  sayfalarda `noindex` + `no-referrer`, ayrıca `robots.txt` ile tarama engellenir.
 - Otomatik uçtan uca (tarayıcı) testleri yok; servis katmanı testleri ve elle tarayıcı doğrulaması yapıldı.
 - E-posta: kalıcı teslim hatasında (hard bounce, geçersiz adres, engellenmiş) adresin e-posta izni otomatik kaldırılır;
   geçici hatalarda (`error`) kaldırılmaz.
