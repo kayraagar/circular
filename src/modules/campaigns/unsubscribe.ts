@@ -72,7 +72,7 @@ export async function unsubscribeByToken(token: string): Promise<{ ok: boolean }
 }
 
 /** E-posta iznini kaldırır (bağlantı, spam şikâyeti veya sağlayıcının abonelik bildirimi). */
-export async function revokeEmailConsent(tenantId: string, customerId: string, via: "UNSUBSCRIBE_LINK" | "SPAM_COMPLAINT" | "PROVIDER_UNSUBSCRIBE") {
+export async function revokeEmailConsent(tenantId: string, customerId: string, via: "UNSUBSCRIBE_LINK" | "SPAM_COMPLAINT" | "PROVIDER_UNSUBSCRIBE" | "HARD_BOUNCE") {
   const customer = await db.customer.findFirst({ where: { id: customerId, tenantId } });
   if (!customer) return false;
   return db.$transaction(async (tx) => {

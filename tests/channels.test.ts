@@ -274,6 +274,11 @@ describe("E-posta (Brevo)", () => {
     assert.ok(aliAfter.openedAt && aliAfter.clickedAt);
     const cemAfter = await db.campaignMessage.findUniqueOrThrow({ where: { id: cem.id } });
     assert.deepEqual([cemAfter.status, cemAfter.errorMessage], ["FAILED", "Mailbox does not exist"]);
+    // Kalıcı teslim hatasında adres susturulur; aynı adrese bir daha gönderilmez.
+    const cemConsent = await db.contactConsent.findUniqueOrThrow({ where: { customerId_channel: { customerId: c.cem.id, channel: "EMAIL" } } });
+    assert.equal(cemConsent.status, "REVOKED", "hard bounce sonrası e-posta izni kaldırılır");
+    const bounceLog = await db.activityLog.findFirstOrThrow({ where: { customerId: c.cem.id, action: "consent.revoked" } });
+    assert.match(bounceLog.metadata ?? "", /HARD_BOUNCE/);
     const detail = await getCampaignDetail(A.crm, ali.campaignId);
     assert.deepEqual(detail.engagement, { opened: 1, clicked: 1 });
 
@@ -286,6 +291,12 @@ describe("E-posta (Brevo)", () => {
 
   test("abonelikten çıkma bağlantısı: imzalı, tek tıkla ve sayfadan çalışır, tekrar edilebilir", async () => {
     const cem = await db.campaignMessage.findFirstOrThrow({ where: { customerId: c.cem.id, campaign: { channel: "EMAIL" } } });
+    // Önceki test hard bounce ile izni kaldırdı; bu test çıkış bağlantısını izinli bir kişiyle dener.
+    await db.contactConsent.update({
+      where: { customerId_channel: { customerId: c.cem.id, channel: "EMAIL" } },
+      data: { status: "GRANTED", revokedAt: null },
+    });
+    await db.activityLog.deleteMany({ where: { customerId: c.cem.id, action: "consent.revoked" } });
     const token = unsubscribeToken(cem.id);
     assert.equal(await resolveUnsubscribe(`${cem.id}.bozuk-imza-000000000000`), null);
     assert.equal(await resolveUnsubscribe(unsubscribeToken("baskamesaj0000000000000")), null);
@@ -399,7 +410,12 @@ describe("Instagram DM otomasyonu", () => {
 
     const logs = await db.instagramReplyLog.findMany({ where: { tenantId: A.tenant.id }, orderBy: { createdAt: "asc" } });
     assert.deepEqual(logs.map((l) => l.status), ["SENT", "COOLDOWN", "SENT"]);
-    assert.ok(logs.every((l) => l.senderHash.length === 64 && !l.senderHash.includes("555")), "kişi kimliği düz saklanmaz");
+    // Ham kimlik saklanmamalı. Özetin İÇİNDE "555" aramak yanlış olur: rastgele bir SHA-256
+    // hex dizisi bu üçlüyü tesadüfen içerebilir ve test ara sıra düşerdi.
+    assert.ok(
+      logs.every((l) => /^[a-f0-9]{64}$/.test(l.senderHash) && l.senderHash !== "555" && l.senderHash !== "777"),
+      "kişi kimliği düz saklanmaz",
+    );
     const menuRule = await db.instagramAutoReply.findFirstOrThrow({ where: { tenantId: A.tenant.id, keywords: "menu,fiyat" } });
     assert.equal(menuRule.replyCount, 1);
   });

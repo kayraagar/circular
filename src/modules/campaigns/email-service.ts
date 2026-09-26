@@ -315,6 +315,11 @@ export async function handleBrevoWebhook(payload: unknown) {
             data: { status: "FAILED", failedAt: at, errorCode: `BREVO_${e.event}`, errorMessage: (e.reason || "E-posta teslim edilemedi.").slice(0, 300) },
           });
         }
+        // Kalıcı hatada adres susturulur: aynı adrese tekrar gönderim gönderici itibarını düşürür.
+        // "error" geçici olabileceği için izin kaldırılmaz.
+        if (e.event !== "error" && message.customerId) {
+          await revokeEmailConsent(message.tenantId, message.customerId, "HARD_BOUNCE");
+        }
         break;
       case "opened":
       case "unique_opened":

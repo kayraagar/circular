@@ -412,3 +412,5 @@ Ayrıntılar ve açık kararlar: [docs/ROADMAP.md](docs/ROADMAP.md).
   (ekip yönetimi hazırlanıyor).
 - Müşteri kalıcı silme/anonimleştirme (KVKK talebi) ve CSV içe/dışa aktarma yok.
 - Otomatik uçtan uca (tarayıcı) testleri yok; servis katmanı testleri ve elle tarayıcı doğrulaması yapıldı.
+- E-posta: kalıcı teslim hatasında (hard bounce, geçersiz adres, engellenmiş) adresin e-posta izni otomatik kaldırılır;
+  geçici hatalarda (`error`) kaldırılmaz.
