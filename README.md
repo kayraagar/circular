@@ -374,6 +374,12 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
 - **Şifresini unutan üye**: aynı ekranda kişinin satırındaki **Şifre bağlantısı** düğmesi tek kullanımlık, 1 saat geçerli
   bir sıfırlama bağlantısı üretir; siz iletirsiniz. Kişi kendi de `/sifremi-unuttum` ekranından isteyebilir — bu yol
   e-posta servisi (Brevo) bağlandığında çalışır ve adresin kayıtlı olup olmadığını açık etmez.
+- **Mekan sayfası** (`/v/<kısa-ad>`, herkese açık): mekanı tanıtır, yaklaşan **yayındaki** etkinlikleri listeler ve
+  kişinin kendi kaydını açmasına izin verir. Üç kavram ayrı tutulur ve arayüzde de ayrı görünür: CRM kaydı, mekan üyeliği
+  (`VenueMembership`) ve kanal kanal iletişim izni (işaretsiz başlar). **Etkinliğe kaydolmak tek başına iletişim izni
+  vermez.** Etkinlik seçilirse kayıt penceresi ve kapasite uygulanır (kapasite işlem içinde yeniden sayılır) ve kişiye
+  giriş QR'ı hemen verilir. Bilgi zaten kayıtlıysa hiçbir şey değiştirilmez — herkese açık form mevcut kaydı güncelleyemez.
+  Bal küpü alanı, IP başına hız sınırı ve KVKK m.10 aydınlatması uygulanır.
 - **Telefon doğrulaması**: kayıt formuna başkasının numarası yazılabilir; o numaraya ticari ileti göndermek hem İYS hem
   KVKK açısından sorunludur. SMS hesabı (Netgsm) bağlıysa menüden kayıttan hemen sonra tek kullanımlık 6 haneli kod
   gönderilir ve kayıt ekranında sorulur. Kod düz saklanmaz (SHA-256), 10 dakika geçerlidir, en fazla 5 kez denenir ve

@@ -55,12 +55,16 @@ Bu bölümde açık kalanlar:
 
 ## Faz 2 — Public üyelik ve etkinlik sayfaları
 
-- `/v/[venueSlug]` markalı alan: başlık `"[Mekan] — Circular"` (`venueExperienceTitle`).
-- Kayıt formu: CRM kaydı (varsa eşleştirme) + `VenueMembership` + kanal bazında **ayrı** onay kutuları (`ContactConsent.source = PUBLIC_SIGNUP`, `consentTextVersion`).
-- Eşleştirme yalnızca aynı tenant içinde normalize telefon/e-posta ile; tenant'lar arası birleştirme yok.
-- Etkinlik sayfasında kayıt penceresi (`registrationOpensAt/ClosesAt`) ve kapasite uygulanır.
-- Kişinin kendi QR'larını ve tercihlerini gördüğü "üyelik alanım" (e-posta/SMS tek kullanımlık kod ile giriş — şifresiz).
-- Bot koruması ve form hız sınırı gerekli.
+**Tamamlanan bölüm — mekan sayfası:** `/v/[venueSlug]` (başlık `"[Mekan] — Circular"`), yaklaşan yayındaki etkinlikler,
+kendi kaydını açma formu (CRM kaydı + `VenueMembership` + kanal bazında ayrı onay kutuları, `PUBLIC_SIGNUP` +
+`consentTextVersion`), etkinlik seçilirse kayıt penceresi ve kapasite uygulanıp giriş QR'ı verilmesi. Bal küpü alanı,
+IP başına hız sınırı ve KVKK m.10 aydınlatması var. Kayıtlı bilgiyle gelen kayıt mevcut kaydı değiştirmez.
+
+Bu bölümde açık kalanlar:
+
+- Kişinin kendi QR'larını ve tercihlerini bir arada gördüğü "üyelik alanım" (e-posta/SMS tek kullanımlık kod ile giriş).
+  Tercih merkezi (`/tercih/...`) ve kişisel QR sayfası (`/pass/...`) ayrı ayrı çalışıyor.
+- Mekan logosu ve kapak görseli (dosya depolama gerekir); şu an sayfa yazı odaklıdır.
 
 ## Faz 3 — QR Menü
 
