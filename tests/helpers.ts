@@ -48,6 +48,7 @@ export async function resetDb() {
     db.eventPrAssignment.deleteMany(),
     db.eventRegistration.deleteMany(),
     db.event.deleteMany(),
+    db.dataSubjectRequest.deleteMany(),
     db.contactConsent.deleteMany(),
     db.venueMembership.deleteMany(),
     db.customerTag.deleteMany(),

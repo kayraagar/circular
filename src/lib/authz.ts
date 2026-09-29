@@ -21,6 +21,9 @@ const PERMISSIONS = {
   // AI Asistan: yalnızca okur ve taslak önerir; gönderim/düzenleme yetkisi vermez.
   "assistant.use": ["OWNER_ADMIN", "CRM_MANAGER"],
   "settings.view": ["OWNER_ADMIN"],
+  // KVKK ilgili kişi hakları: veriyi dışa aktarma, anonimleştirme, kalıcı silme ve
+  // başvuru kaydı. Geri alınamaz işlemler olduğu için yalnızca işletme sahibi.
+  "privacy.manage": ["OWNER_ADMIN"],
   // Ekip yönetimi: davet, rol değiştirme, mekan atama, üyeliği pasifleştirme
   "team.manage": ["OWNER_ADMIN"],
   // Güvenli QR

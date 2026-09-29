@@ -15,6 +15,7 @@ import {
 } from "@/lib/domain";
 import { getCustomerProfile } from "@/modules/customers/service";
 import { setArchivedAction } from "@/modules/customers/actions";
+import { anonymizeCustomerAction, deleteCustomerAction } from "@/modules/privacy/actions";
 import { listActivity } from "@/modules/activity/service";
 import { ATTENDANCE_LABELS, attendanceState } from "@/modules/events/attendance";
 import { getCustomerVerifiedActivity } from "@/modules/passes/service";
@@ -51,6 +52,7 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
     : [];
   const name = fullName(customer);
   const archived = customer.archivedAt !== null;
+  const anonymized = customer.anonymizedAt !== null;
   const now = new Date();
 
   const consentRows: ConsentRow[] = CHANNELS.map((channel: Channel) => {
@@ -262,6 +264,55 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
               {customer.notes || <span className="text-muted">Not eklenmemiş.</span>}
             </p>
           </Card>
+
+          {/* KVKK ilgili kişi hakları: yalnızca işletme sahibi; anonimleştirme ve silme geri alınamaz. */}
+          {can(role, "privacy.manage") && (
+            <Card>
+              <CardHeader title="KVKK" description="Kişinin bilgi ve silme talepleri" />
+              <div className="space-y-3 px-5 py-4">
+                {anonymized ? (
+                  <p className="text-[13px] leading-relaxed text-muted">
+                    Bu kayıt <span className="text-fg">{formatDate(customer.anonymizedAt!)}</span> tarihinde anonimleştirildi.
+                    Kimlik ve iletişim bilgileri silindi; ziyaret ve kayıt sayıları istatistik olarak duruyor.
+                  </p>
+                ) : (
+                  <p className="text-[13px] leading-relaxed text-muted">
+                    Kişi verisini isterse dışa aktarın; silinmesini isterse anonimleştirin. Arşivlemek silme değildir.
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <ButtonLink href={`/customers/${customer.id}/export`} variant="secondary" size="sm">
+                    Veriyi dışa aktar (JSON)
+                  </ButtonLink>
+                  {!anonymized && (
+                    <ConfirmDialog
+                      trigger="Anonimleştir"
+                      title="Kaydı anonimleştir"
+                      description="Ad, telefon, e-posta, doğum tarihi, notlar, etiketler, iletişim izinleri ve kişiye özel QR'lar kalıcı olarak silinir. Ziyaret ve etkinlik sayıları anonim olarak kalır. Bu işlem geri alınamaz."
+                      confirmLabel="Anonimleştir"
+                      action={anonymizeCustomerAction}
+                      fields={{ customerId: customer.id }}
+                    />
+                  )}
+                  <ConfirmDialog
+                    trigger="Kalıcı olarak sil"
+                    title="Kaydı kalıcı olarak sil"
+                    description="Kişiye ait bütün satırlar (etiket, izin, üyelik, etkinlik kaydı, giriş, QR, avantaj kullanımı) veritabanından silinir. Geçmiş raporlardaki sayılar da düşer. Bu işlem geri alınamaz."
+                    confirmLabel="Kalıcı olarak sil"
+                    action={deleteCustomerAction}
+                    fields={{ customerId: customer.id }}
+                  />
+                </div>
+                <p className="text-[12px] leading-relaxed text-muted">
+                  Gelen başvuruyu{" "}
+                  <Link href="/kvkk" className="text-fg underline underline-offset-4">
+                    KVKK başvuruları
+                  </Link>{" "}
+                  ekranına kaydedin; 30 günlük cevap süresi oradan takip edilir.
+                </p>
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </>

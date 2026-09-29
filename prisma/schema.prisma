@@ -103,6 +103,7 @@ model Tenant {
   instagramAccount     InstagramAccount?
   instagramAutoReplies InstagramAutoReply[]
   teamInvites          TeamInvite[]
+  dataRequests         DataSubjectRequest[]
 
   // ─── Veri sorumlusu bilgileri (müşteriye açık formlarda ve ticari iletilerde gösterilir)
   legalName    String? // ticaret unvanı
@@ -194,6 +195,8 @@ model Customer {
   sourceMembershipId String? // müşteriyi getiren PR/personel (Faz 2 atama kuralı)
   createdByUserId    String?
   archivedAt         DateTime?
+  /// KVKK silme talebiyle kimlik bilgileri kalıcı olarak temizlendi (kayıt istatistik için kalır)
+  anonymizedAt       DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -206,6 +209,7 @@ model Customer {
   passes           Pass[]
   perkRedemptions  PerkRedemption[]
   campaignMessages CampaignMessage[]
+  dataRequests     DataSubjectRequest[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, phone])
@@ -969,6 +973,35 @@ model InstagramReplyLog {
 
 /// Ekip daveti: tek kullanımlık link. Ham kod saklanmaz, yalnızca SHA-256 özeti tutulur.
 /// Kabul edilince kullanıcı hesabı (yoksa) ve üyelik oluşur; link bir daha çalışmaz.
+/// KVKK m.11 ilgili kişi başvurusu. İşletme (veri sorumlusu) gelen talebi buraya kaydeder;
+/// yasal cevap süresi otuz gündür. Talep sahibi CRM'de kayıtlıysa `customerId` ile bağlanır.
+model DataSubjectRequest {
+  id           String    @id @default(cuid())
+  tenantId     String
+  customerId   String? // kayıtlı müşteriyle eşleşen başvuru
+  /// Başvuranın beyan ettiği kimlik/iletişim bilgisi (kayıtlı değilse tek kaynak budur)
+  applicantName String
+  contact      String? // e-posta veya telefon (başvuruya cevap için)
+  kind         String // ACCESS | ERASURE | RECTIFICATION | OBJECTION | PORTABILITY | OTHER
+  channel      String // EMAIL | KEP | POST | IN_PERSON | OTHER — başvurunun geliş yolu
+  note         String? // talebin özeti
+  status       String    @default("OPEN") // OPEN | DONE | REJECTED
+  resolution   String? // ne yapıldı (cevap özeti)
+  receivedAt   DateTime // başvurunun alındığı an; süre buradan sayılır
+  dueAt        DateTime // receivedAt + 30 gün
+  resolvedAt   DateTime?
+  createdByUserId String?
+  resolvedByUserId String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: SetNull)
+
+  @@unique([id, tenantId])
+  @@index([tenantId, status, dueAt])
+}
+
 model TeamInvite {
   id              String    @id @default(cuid())
   tenantId        String

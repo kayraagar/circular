@@ -7,6 +7,11 @@ export type ActivityAction =
   | "customer.updated"
   | "customer.archived"
   | "customer.restored"
+  | "customer.anonymized"
+  | "customer.deleted"
+  | "customer.exported"
+  | "privacy.request_logged"
+  | "privacy.request_resolved"
   | "consent.granted"
   | "consent.revoked"
   | "event.created"
@@ -80,6 +85,7 @@ export type ActivityInput = {
     | "instagram"
     | "membership"
     | "team_invite"
+    | "data_request"
     | "tenant";
   entityId: string;
   customerId?: string | null;

@@ -172,7 +172,9 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   (sunucu saat diliminden bağımsız). Doğum tarihi saat dilimi kaymasın diye `YYYY-MM-DD` metin olarak saklanır.
 - **Arama** Türkçe katlanmış `searchName` sütunu ile yapılır ("ŞULE" = "sule"), telefon rakamlarla eşleşir.
 - **Mükerrer kontrolü**: aynı telefon/e-posta → engel + mevcut kayda link; aynı ad-soyad → uyarı + bilinçli onay.
-- **Silme yerine arşiv**: müşteri arşivlenir (geri alınabilir, yalnızca işletme sahibi). KVKK silme/anonimleştirme Faz 2+.
+- **Silme yerine arşiv**: müşteri arşivlenir (geri alınabilir, yalnızca işletme sahibi). KVKK silme talebi geldiğinde
+  müşteri kaydındaki **KVKK** bölümünden anonimleştirme (kimlik silinir, sayılar kalır) veya kalıcı silme yapılır;
+  ikisi de geri alınamaz ve aktivite geçmişindeki ad/telefon/e-posta anlık görüntüleri de temizlenir.
 - **Oturum**: 32 bayt rastgele token, httpOnly + SameSite=Lax (+ production'da Secure) cookie; DB'de yalnızca SHA-256 özeti.
   14 gün sabit süre. Giriş denemeleri IP+e-posta bazında sınırlanır; bilinmeyen e-postada sabit süreli yanıt.
 - **Şifre sıfırlama**: tek kullanımlık bağlantı (ham kod saklanmaz, yalnızca SHA-256 özeti), 1 saat geçerli. İki yol vardır:
@@ -364,6 +366,11 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
 - **Şifresini unutan üye**: aynı ekranda kişinin satırındaki **Şifre bağlantısı** düğmesi tek kullanımlık, 1 saat geçerli
   bir sıfırlama bağlantısı üretir; siz iletirsiniz. Kişi kendi de `/sifremi-unuttum` ekranından isteyebilir — bu yol
   e-posta servisi (Brevo) bağlandığında çalışır ve adresin kayıtlı olup olmadığını açık etmez.
+- **KVKK başvuruları** (`/kvkk`, Ayarlar › Yasal'dan bağlantılı; yalnızca işletme sahibi): kişilerden gelen veri
+  taleplerinin defteri. Başvuru kaydedilir, 30 günlük cevap süresi ekranda sayılır, süresi geçen başvurular kırmızı
+  görünür ve sonuç metni yazılmadan kapatılamaz. Panel başvuru **almaz**: başvurular işletmenin ilan ettiği adrese gelir,
+  burası takibidir. Müşteri kaydındaki KVKK bölümü üç işlemi yapar — veriyi JSON olarak dışa aktarma (m.11/b-c),
+  anonimleştirme ve kalıcı silme.
 - **Raporlar** (soldaki **Raporlar** → `/reports`; işletme sahibi ve CRM yöneticisi): 7/30/90 günlük hazır dönem veya
   **özel tarih aralığı** (en fazla bir yıl; bitiş bugünden ileri olamaz), seçili mekana göre. Karşılaştırma her zaman
   hemen öncesindeki aynı uzunluktaki dönemle yapılır. **CSV indirme**: özet, günlük seriler, etkinlikler, PR katkısı,

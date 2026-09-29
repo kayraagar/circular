@@ -7,6 +7,7 @@ import { brand } from "@/config/brand";
 import { getTenantSettings } from "@/modules/settings/service";
 import { getTeam } from "@/modules/team/service";
 import { getTenantLegal } from "@/modules/legal/tenant-legal";
+import { listDataRequests } from "@/modules/privacy/requests";
 import { legalDocuments } from "@/modules/legal/documents";
 import { TeamManager } from "./team-manager";
 import { LegalForm } from "./legal-form";
@@ -18,7 +19,7 @@ export const metadata: Metadata = { title: "Ayarlar" };
 export default async function SettingsPage() {
   const ctx = await requirePermission("settings.view");
   const { tenant, venues } = await getTenantSettings(ctx.service);
-  const [team, legal] = await Promise.all([getTeam(ctx.service), getTenantLegal(ctx.service)]);
+  const [team, legal, privacy] = await Promise.all([getTeam(ctx.service), getTenantLegal(ctx.service), listDataRequests(ctx.service)]);
   const documents = legalDocuments();
 
   return (
@@ -89,6 +90,14 @@ export default async function SettingsPage() {
           <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-muted">
             Panele giren kişilerin verisinde veri sorumlusu {brand.name}, mekanın müşterilerinin verisinde ise işletmenizdir;{" "}
             {brand.name} bu veride veri işleyendir.
+          </p>
+          <p className="mt-2 text-[13px] text-muted">
+            Kişilerden gelen veri talepleri:{" "}
+            <Link href="/kvkk" className="text-fg underline underline-offset-4">
+              KVKK başvuruları
+            </Link>
+            {privacy.openCount > 0 && ` · ${privacy.openCount} açık başvuru`}
+            {privacy.overdueCount > 0 && ` · ${privacy.overdueCount} tanesinin süresi doldu`}
           </p>
         </div>
 

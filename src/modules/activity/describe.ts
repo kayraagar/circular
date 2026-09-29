@@ -173,6 +173,16 @@ export function describeActivity(item: ActivityItem): ActivityDescription {
       };
     case "team.venues_changed":
       return { verb: "ekip üyesinin mekan erişimini güncelledi", subject: { label: str(m.name) || "üye", href: "/settings" }, detail: str(m.venues) || undefined };
+    case "customer.anonymized":
+      return { verb: "müşteri kaydını KVKK talebiyle anonimleştirdi", subject: { label: "Silinmiş kayıt", href: "/customers" } };
+    case "customer.deleted":
+      return { verb: "müşteri kaydını KVKK talebiyle kalıcı olarak sildi", subject: { label: "Silinmiş kayıt", href: "/customers" } };
+    case "customer.exported":
+      return { verb: "müşteri verisini dışa aktardı", subject: { label: str(m.customerName) || "müşteri", href: "/customers" } };
+    case "privacy.request_logged":
+      return { verb: "ilgili kişi başvurusu kaydetti", subject: { label: str(m.kindLabel) || "başvuru", href: "/kvkk" } };
+    case "privacy.request_resolved":
+      return { verb: "ilgili kişi başvurusunu sonuçlandırdı", subject: { label: str(m.kindLabel) || "başvuru", href: "/kvkk" } };
     case "campaign.scheduled":
       return { verb: "kampanyayı planladı", subject: { label: str(m.name) || "kampanya", href: "/campaigns" }, detail: str(m.channel) || undefined };
     case "campaign.schedule_cancelled":

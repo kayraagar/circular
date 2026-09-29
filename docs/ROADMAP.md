@@ -186,10 +186,10 @@ Açık kalanlar:
   (Brevo bağlanınca), üyelik silme (şu an yalnızca erişim kapatılır) ve mekan ekleme/düzenleme.
 - **Mekan yönetimi:** mekan ekleme/düzenleme, logo ve görseller (dosya depolama gerekir).
 - **KVKK:** ✔ yasal metinler (`/yasal`) ve işletmenin veri sorumlusu bilgileri eklendi; kayıt formunda aydınlatma gösteriliyor.
-  Açık kalanlar: müşteri kalıcı silme/anonimleştirme talebi (arşivden farklı), aktivite metadata'sındaki adların
-  temizlenmesi, kişinin kendi verisini dışa aktarması, ilgili kişi başvurusu için panel içi akış, onay metni sürümünün
-  (`consentTextVersion`) kayıt anında yazılması, yurt dışı aktarım için standart sözleşme imzalanıp Kuruma bildirilmesi
-  ve VERBİS kaydı. Son üçü hukuki/idari adımdır, yazılımla tamamlanmaz.
+  ✔ İlgili kişi hakları eklendi: kalıcı silme ve anonimleştirme (aktivite metadata'sındaki adlar dahil temizlenir),
+  kişinin verisinin JSON dışa aktarımı ve panel içi başvuru defteri (`/kvkk`, 30 günlük süre takibi).
+  Açık kalanlar: onay metni sürümünün (`consentTextVersion`) her kayıt anında yazılması, yurt dışı aktarım için standart
+  sözleşme imzalanıp Kuruma bildirilmesi ve VERBİS kaydı. Son ikisi hukuki/idari adımdır, yazılımla tamamlanmaz.
 - **Hız sınırı:** giriş sınırlayıcısı bellek içi; çok instance'lı dağıtımda Redis/DB tabanlı olmalı.
 - **Postgres'e geçiş:** `provider = "postgresql"`, migration'ları yeniden üret; `@@index` ve composite FK'ler aynen çalışır. Etkinlik kapasite kontrolü için `SELECT ... FOR UPDATE` veya Serializable izolasyon korunmalı.
 - **Oturum:** kayan süre uzatma, "tüm oturumlardan çık", 2FA (işletme sahibi için).
