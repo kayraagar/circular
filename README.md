@@ -369,6 +369,11 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
 - **Şifresini unutan üye**: aynı ekranda kişinin satırındaki **Şifre bağlantısı** düğmesi tek kullanımlık, 1 saat geçerli
   bir sıfırlama bağlantısı üretir; siz iletirsiniz. Kişi kendi de `/sifremi-unuttum` ekranından isteyebilir — bu yol
   e-posta servisi (Brevo) bağlandığında çalışır ve adresin kayıtlı olup olmadığını açık etmez.
+- **Tercih merkezi** (`/tercih/<imzalı-bağlantı>`, herkese açık): kişi üç kanaldaki (WhatsApp, SMS, e-posta) iletişim
+  iznini kendisi açıp kapatır. Bağlantı kişi kimliğinin HMAC imzasıdır (veritabanında satır tutulmaz); sayfada kişisel
+  veri olarak yalnızca **maskeli ad** görünür, telefon/e-posta/geçmiş gösterilmez. İletişim bilgisi olmayan kanal
+  açılamaz. Değişiklik `source = PREFERENCE_CENTER` ve metin sürümüyle kaydedilir, aktivite geçmişine "Sistem" olarak
+  düşer. Bağlantı kampanya e-postalarının altında ve kişinin QR sayfasında (`/pass`) görünür.
 - **KVKK başvuruları** (`/kvkk`, Ayarlar › Yasal'dan bağlantılı; yalnızca işletme sahibi): kişilerden gelen veri
   taleplerinin defteri. Başvuru kaydedilir, 30 günlük cevap süresi ekranda sayılır, süresi geçen başvurular kırmızı
   görünür ve sonuç metni yazılmadan kapatılamaz. Panel başvuru **almaz**: başvurular işletmenin ilan ettiği adrese gelir,

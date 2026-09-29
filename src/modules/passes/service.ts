@@ -7,6 +7,7 @@ import { cleanText, foldText, fullName } from "@/lib/normalize";
 import { formatDateTime } from "@/lib/datetime";
 import { isOneOf, ROLES, type Role } from "@/lib/domain";
 import { createRateLimiter } from "@/lib/rate-limit";
+import { preferenceUrl } from "@/modules/preferences/service";
 import { logActivity } from "@/modules/activity/service";
 import { registrationStats } from "@/modules/events/service";
 import {
@@ -662,6 +663,8 @@ export type PublicPassView = {
   entry?: { eventName: string; startsAt: Date; endsAt: Date; opensAt: Date; closesAt: Date; partySize: number };
   perk?: { perkName: string; description: string | null; terms: string | null; validUntil: Date | null; remaining: number; limit: number };
   usedAt: Date | null;
+  /** Kişinin kendi iletişim izinlerini yönettiği sayfa (tercih merkezi). */
+  preferenceUrl: string;
 };
 
 /**
@@ -681,6 +684,7 @@ export async function getPublicPassView(token: string): Promise<PublicPassView |
     showQr: state === "VALID" || state === "NOT_YET_VALID",
     qr: share.qr,
     usedAt: pass.lastUsedAt,
+    preferenceUrl: preferenceUrl(pass.customerId),
   };
   if (pass.purpose === "EVENT_ENTRY" && pass.registration) {
     const event = pass.registration.event;

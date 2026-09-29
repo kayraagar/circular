@@ -9,7 +9,9 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 export type EmailContent = { subject: string; body: string; ctaLabel?: string | null; ctaUrl?: string | null };
 
-export function renderCampaignEmail(input: EmailContent & { senderName: string; legalFooter: string; firstName: string; unsubscribeUrl: string; test?: boolean }): string {
+export function renderCampaignEmail(
+  input: EmailContent & { senderName: string; legalFooter: string; firstName: string; unsubscribeUrl: string; preferenceUrl?: string; test?: boolean },
+): string {
   const paragraphs = renderTemplateText(input.body, input.firstName)
     .split(/\n{2,}/)
     .map((p) => `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#1f1f1f">${esc(p.trim()).replace(/\n/g, "<br>")}</p>`)
@@ -30,7 +32,9 @@ ${testBanner}
 <tr><td style="padding:8px 28px 12px">${paragraphs}${cta}</td></tr>
 <tr><td style="padding:18px 28px 24px;border-top:1px solid #ececec;font-size:12px;line-height:1.6;color:#8a8a8a">
 ${esc(input.legalFooter)}<br>
-Bu e-postayı ${esc(input.senderName)} ile iletişim izniniz olduğu için aldınız. <a href="${esc(input.unsubscribeUrl)}" style="color:#8a8a8a">Abonelikten çık</a>
+Bu e-postayı ${esc(input.senderName)} ile iletişim izniniz olduğu için aldınız. <a href="${esc(input.unsubscribeUrl)}" style="color:#8a8a8a">Abonelikten çık</a>${
+      input.preferenceUrl ? ` · <a href="${esc(input.preferenceUrl)}" style="color:#8a8a8a">İletişim tercihlerim</a>` : ""
+    }
 </td></tr>
 </table></td></tr></table></body></html>`;
 }

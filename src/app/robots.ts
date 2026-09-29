@@ -10,7 +10,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/pass/", "/q/", "/davet/", "/ekip/", "/sifre/", "/abonelik/", "/api/"],
+      disallow: ["/pass/", "/q/", "/davet/", "/ekip/", "/sifre/", "/tercih/", "/abonelik/", "/api/"],
     },
   };
 }

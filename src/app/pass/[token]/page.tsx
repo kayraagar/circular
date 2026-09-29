@@ -124,6 +124,11 @@ export default async function PassPage({ params }: Params) {
         <p className="mt-5 text-center text-xs leading-relaxed text-muted">
           Bu kod size özeldir ve kişisel bilgi içermez. Ekran görüntüsünü başkalarıyla paylaşmayın.
         </p>
+        <p className="mt-3 text-center text-xs text-muted">
+          <a href={view.preferenceUrl} className="underline underline-offset-4 transition-colors hover:text-fg">
+            İletişim tercihlerim
+          </a>
+        </p>
         <div className="mt-8 flex justify-center text-muted">
           <BrandMark size={16} />
         </div>

@@ -82,7 +82,7 @@ Bu bölümde açık kalanlar:
 
 - **Telefon doğrulaması (SMS/OTP):** yeni kayıtlarda izinlerin ve ikramın gerçekten numara sahibine ait olduğunu
   kanıtlamak için gerekli; kampanya gönderimi başlamadan önce şart.
-- **Tercih merkezi:** kişinin izinden kendisinin vazgeçebileceği sayfa.
+- ✔ **Tercih merkezi** eklendi: `/tercih/<imzalı-bağlantı>`; kişi üç kanalın iznini kendisi yönetir.
 - **Ölçüm:** popup gösterim ve tıklama olayları (şu an yalnızca gerçekleşen kayıtlar sayılabilir).
 - Taslak/yayın sürümü, panelden menü QR'ı üretimi, mekan bazlı menü, birden fazla kampanya.
 - Sürükle-bırak sıralama, alerjen filtresi, çoklu dil, görsellerin nesne depolamaya taşınması, paylaşımlı hız sınırı.

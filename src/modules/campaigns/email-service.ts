@@ -7,6 +7,7 @@ import { cleanText, normalizeEmail } from "@/lib/normalize";
 import { logActivity } from "@/modules/activity/service";
 import { loadSendableCustomers, parseAudience, summarizeAudience } from "./audience";
 import { BrevoError, brevoConfig, brevoReady, isBrevoConfigError, sendEmail } from "./brevo-api";
+import { preferenceUrl } from "@/modules/preferences/service";
 import { channelSecretReady } from "./config";
 import { renderCampaignEmail, type EmailContent } from "./email-template";
 import { CONCURRENCY, claimBatch, completeIfDone, failMessages, firstNamesFor, recheckRecipients, runLimited, skipMessage } from "./queue";
@@ -247,6 +248,8 @@ export async function processEmailCampaign(campaign: {
         legalFooter: settings.legalFooter,
         firstName,
         unsubscribeUrl: unsubscribePageUrl(m.id),
+        // Tercih merkezi yalnızca gerçek müşteriye gönderilir (test alıcısının kaydı yoktur).
+        preferenceUrl: m.customerId ? preferenceUrl(m.customerId) : undefined,
         test: isTest,
       });
       try {
