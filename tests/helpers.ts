@@ -59,6 +59,8 @@ export async function resetDb() {
     db.venue.deleteMany(),
     db.rateLimitCounter.deleteMany(),
     db.phoneVerification.deleteMany(),
+    db.memberLoginCode.deleteMany(),
+    db.memberSession.deleteMany(),
     db.session.deleteMany(),
     db.passwordReset.deleteMany(),
     db.user.deleteMany(),

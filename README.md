@@ -380,6 +380,11 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   vermez.** Etkinlik seçilirse kayıt penceresi ve kapasite uygulanır (kapasite işlem içinde yeniden sayılır) ve kişiye
   giriş QR'ı hemen verilir. Bilgi zaten kayıtlıysa hiçbir şey değiştirilmez — herkese açık form mevcut kaydı güncelleyemez.
   Bal küpü alanı, IP başına hız sınırı ve KVKK m.10 aydınlatması uygulanır.
+- **Üyelik alanım** (`/v/<kısa-ad>/uyelik`, herkese açık): kişi telefonunu veya e-postasını yazar, tek kullanımlık
+  kodla **şifresiz** girer; kendi QR kodlarını, etkinlik kayıtlarını, üyeliklerini ve iletişim tercihlerini görür.
+  Cevap hiçbir adımda kaydın var olup olmadığını belli etmez (form üye taramasına dönüşmesin). Üyelik oturumu panel
+  oturumundan tamamen ayrıdır (ayrı cookie, ayrı tablo) ve hiçbir panel yetkisi vermez. SMS ile giriş yapan kişi
+  numarasının sahibi olduğunu kanıtladığı için numara doğrulanmış sayılır.
 - **Telefon doğrulaması**: kayıt formuna başkasının numarası yazılabilir; o numaraya ticari ileti göndermek hem İYS hem
   KVKK açısından sorunludur. SMS hesabı (Netgsm) bağlıysa menüden kayıttan hemen sonra tek kullanımlık 6 haneli kod
   gönderilir ve kayıt ekranında sorulur. Kod düz saklanmaz (SHA-256), 10 dakika geçerlidir, en fazla 5 kez denenir ve

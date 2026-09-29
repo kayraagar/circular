@@ -62,8 +62,8 @@ IP başına hız sınırı ve KVKK m.10 aydınlatması var. Kayıtlı bilgiyle g
 
 Bu bölümde açık kalanlar:
 
-- Kişinin kendi QR'larını ve tercihlerini bir arada gördüğü "üyelik alanım" (e-posta/SMS tek kullanımlık kod ile giriş).
-  Tercih merkezi (`/tercih/...`) ve kişisel QR sayfası (`/pass/...`) ayrı ayrı çalışıyor.
+- ✔ "Üyelik alanım" eklendi (`/v/<kısa-ad>/uyelik`): tek kullanımlık kodla şifresiz giriş, kişinin QR'ları,
+  etkinlik kayıtları, üyelikleri ve iletişim tercihleri. Giriş kodu SMS veya e-posta ile gider (kanal bağlıysa).
 - Mekan logosu ve kapak görseli (dosya depolama gerekir); şu an sayfa yazı odaklıdır.
 
 ## Faz 3 — QR Menü

@@ -4,6 +4,7 @@ import { processCampaign } from "./campaign-service";
 import { MAX_ATTEMPTS, isRetryableErrorCode } from "./queue";
 import { pruneRateLimitCounters } from "@/lib/rate-limit";
 import { prunePhoneVerifications } from "@/modules/verification/service";
+import { pruneMemberRecords } from "@/modules/member/service";
 
 /**
  * Kalıcı gönderim işçisi.
@@ -131,6 +132,7 @@ export async function runCampaignWorker(now = new Date()): Promise<WorkerReport>
   // Süresi dolmuş istek sayaçları bu turda temizlenir (ayrı bir zamanlayıcı gerekmesin).
   await pruneRateLimitCounters(now).catch(() => undefined);
   await prunePhoneVerifications(now).catch(() => undefined);
+  await pruneMemberRecords(now).catch(() => undefined);
 
   return {
     startedScheduled: scheduled.length,

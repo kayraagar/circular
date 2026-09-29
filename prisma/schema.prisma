@@ -105,6 +105,7 @@ model Tenant {
   teamInvites          TeamInvite[]
   dataRequests         DataSubjectRequest[]
   phoneVerifications   PhoneVerification[]
+  memberLoginCodes     MemberLoginCode[]
 
   // ─── Veri sorumlusu bilgileri (müşteriye açık formlarda ve ticari iletilerde gösterilir)
   legalName    String? // ticaret unvanı
@@ -213,6 +214,7 @@ model Customer {
   perkRedemptions  PerkRedemption[]
   campaignMessages CampaignMessage[]
   dataRequests     DataSubjectRequest[]
+  memberSessions   MemberSession[]
 
   @@unique([id, tenantId])
   @@unique([tenantId, phone])
@@ -976,6 +978,41 @@ model InstagramReplyLog {
 
 /// Ekip daveti: tek kullanımlık link. Ham kod saklanmaz, yalnızca SHA-256 özeti tutulur.
 /// Kabul edilince kullanıcı hesabı (yoksa) ve üyelik oluşur; link bir daha çalışmaz.
+/// Üyelik alanına şifresiz giriş kodu (SMS veya e-posta). Kod düz saklanmaz, kısa sürede
+/// geçersizleşir ve sınırlı sayıda denenebilir.
+model MemberLoginCode {
+  id          String    @id @default(cuid())
+  tenantId    String
+  channel     String // SMS | EMAIL
+  destination String // E.164 numara veya küçük harfli e-posta
+  codeHash    String
+  attempts    Int       @default(0)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, destination])
+  @@index([expiresAt])
+}
+
+/// Üyelik alanı oturumu. Cookie yalnızca rastgele token taşır; veritabanında özeti durur.
+/// Panel oturumundan (Session) tamamen ayrıdır: yetki vermez, yalnızca kişinin kendi kaydını açar.
+model MemberSession {
+  id         String   @id @default(cuid())
+  tokenHash  String   @unique
+  tenantId   String
+  customerId String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([expiresAt])
+}
+
 /// Telefon doğrulama (tek kullanımlık SMS kodu). Kod düz saklanmaz, yalnızca SHA-256 özeti;
 /// kısa sürede geçersizleşir ve sınırlı sayıda denenebilir. Numara başına tek açık kayıt olur.
 model PhoneVerification {
