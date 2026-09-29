@@ -8,6 +8,7 @@ import {
   setMemberStatusAction,
   setMemberVenuesAction,
 } from "@/modules/team/actions";
+import { createResetLinkAction } from "@/modules/auth/password-actions";
 import type { PendingInvite, TeamMember } from "@/modules/team/service";
 import { IDLE, fieldError, valueOf, type ActionState } from "@/lib/action-state";
 import { formatDate, formatRelative } from "@/lib/datetime";
@@ -45,11 +46,21 @@ function VenuePicker({ venues, selected, idPrefix }: { venues: Venue[]; selected
   );
 }
 
-function InviteLink({ url, expiresAt }: { url: string; expiresAt: string }) {
+function InviteLink({
+  url,
+  expiresAt,
+  lead = "Davet bağlantısı hazır. Kişiye kendiniz iletin — e-posta gönderilmez.",
+  note,
+}: {
+  url: string;
+  expiresAt: string;
+  lead?: string;
+  note?: string;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="rounded-field border border-positive/30 bg-positive/[0.05] p-3.5">
-      <p className="text-[13px] text-fg">Davet bağlantısı hazır. Kişiye kendiniz iletin — e-posta gönderilmez.</p>
+      <p className="text-[13px] text-fg">{lead}</p>
       <div className="mt-2.5 flex flex-col gap-2 sm:flex-row">
         <code className="min-w-0 flex-1 truncate rounded-field border border-line bg-bg px-3 py-2 font-mono text-[12px] text-muted">{url}</code>
         <Button
@@ -58,7 +69,7 @@ function InviteLink({ url, expiresAt }: { url: string; expiresAt: string }) {
             try {
               await navigator.clipboard.writeText(url);
               setCopied(true);
-              toast("Davet bağlantısı kopyalandı.");
+              toast("Bağlantı kopyalandı.");
               window.setTimeout(() => setCopied(false), 2000);
             } catch {
               toast("Kopyalanamadı; bağlantıyı elle seçip kopyalayın.", "error");
@@ -70,8 +81,8 @@ function InviteLink({ url, expiresAt }: { url: string; expiresAt: string }) {
         </Button>
       </div>
       <p className="mt-2.5 text-[12px] leading-relaxed text-muted">
-        {formatDate(new Date(expiresAt))} tarihine kadar geçerli, bir kez kullanılır. Bu bağlantı bir daha gösterilmez; kaybolursa yeni davet
-        oluşturun (eskisi geçersiz olur).
+        {note ??
+          `${formatDate(new Date(expiresAt))} tarihine kadar geçerli, bir kez kullanılır. Bu bağlantı bir daha gösterilmez; kaybolursa yeni davet oluşturun (eskisi geçersiz olur).`}
       </p>
     </div>
   );
@@ -149,6 +160,42 @@ function RowForm({
   );
 }
 
+/**
+ * Şifresini unutan üye için tek kullanımlık bağlantı. E-posta servisi bağlı olmadan da
+ * çalışır: işletme sahibi bağlantıyı kendi kanalıyla iletir.
+ */
+function ResetLinkForm({ member }: { member: TeamMember }) {
+  const [state, action, pending] = useActionState(createResetLinkAction, IDLE);
+  const created = state.status === "success" ? (state.data as { url: string; expiresAt: string } | undefined) : undefined;
+
+  return (
+    <>
+      <form action={action}>
+        <input type="hidden" name="membershipId" value={member.membershipId} />
+        <Button size="sm" variant="ghost" type="submit" disabled={pending} title={`${member.name} için şifre sıfırlama bağlantısı üret`}>
+          {pending && <Spinner size={13} />}
+          Şifre bağlantısı
+        </Button>
+      </form>
+      {state.status === "error" && (
+        <p role="alert" className="w-full text-[12px] text-negative">
+          {state.message}
+        </p>
+      )}
+      {created && (
+        <div className="w-full">
+          <InviteLink
+            url={created.url}
+            expiresAt={created.expiresAt}
+            lead={`${member.name} için şifre sıfırlama bağlantısı hazır. Kişiye kendiniz iletin.`}
+            note="Bir saat geçerli, bir kez kullanılır. Kişi yeni şifresini belirleyince açık tüm oturumları kapanır."
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
 function MemberRow({ member, venues }: { member: TeamMember; venues: Venue[] }) {
   const [editingVenues, setEditingVenues] = useState(false);
   return (
@@ -204,6 +251,8 @@ function MemberRow({ member, venues }: { member: TeamMember; venues: Venue[] }) 
               {member.venueNames.length > 0 ? member.venueNames.join(", ") : "Tüm mekanlar"}
             </Button>
           )}
+
+          {member.active && <ResetLinkForm member={member} />}
 
           {!member.isSelf && (
             <RowForm action={setMemberStatusAction}>

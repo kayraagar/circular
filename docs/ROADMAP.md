@@ -181,8 +181,9 @@ Açık kalanlar:
 
 - **Platform yöneticisi konsolu:** tenant listesi, askıya alma; müşteri verisine destek erişimi yalnızca süreli ve denetim kaydıyla.
 - **Ekip yönetimi:** ✔ tamamlandı — Ayarlar ekranından tek kullanımlık davet bağlantısı, rol değiştirme, mekan erişimi
-  ve erişim kapatma. Açık kalanlar: şifre sıfırlama/unuttum akışı, davetin e-postayla gönderilmesi (Brevo bağlanınca),
-  üyelik silme (şu an yalnızca erişim kapatılır) ve mekan ekleme/düzenleme.
+  ve erişim kapatma. ✔ Şifre sıfırlama eklendi: işletme sahibinin ürettiği tek kullanımlık bağlantı ve kişinin kendi
+  talebi (`/sifremi-unuttum`; e-posta servisi bağlanınca gönderim açılır). Açık kalanlar: davetin e-postayla gönderilmesi
+  (Brevo bağlanınca), üyelik silme (şu an yalnızca erişim kapatılır) ve mekan ekleme/düzenleme.
 - **Mekan yönetimi:** mekan ekleme/düzenleme, logo ve görseller (dosya depolama gerekir).
 - **KVKK:** ✔ yasal metinler (`/yasal`) ve işletmenin veri sorumlusu bilgileri eklendi; kayıt formunda aydınlatma gösteriliyor.
   Açık kalanlar: müşteri kalıcı silme/anonimleştirme talebi (arşivden farklı), aktivite metadata'sındaki adların

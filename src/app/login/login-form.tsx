@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useRef } from "react";
+import Link from "next/link";
 import { loginAction } from "@/modules/auth/actions";
 import { IDLE, fieldError, valueOf } from "@/lib/action-state";
 import { Field, FormAlert, describedBy } from "@/components/ui/primitives";
@@ -47,6 +48,11 @@ export function LoginForm({ next, demoAccounts }: { next: string; demoAccounts: 
         <SubmitButton className="w-full" pendingLabel="Giriş yapılıyor">
           Giriş yap
         </SubmitButton>
+        <p className="text-center">
+          <Link href="/sifremi-unuttum" className="text-[13px] text-muted underline-offset-4 transition-colors hover:text-fg hover:underline">
+            Şifremi unuttum
+          </Link>
+        </p>
       </form>
 
       {demoAccounts.length > 0 && (

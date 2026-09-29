@@ -172,6 +172,10 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
 - **Silme yerine arşiv**: müşteri arşivlenir (geri alınabilir, yalnızca işletme sahibi). KVKK silme/anonimleştirme Faz 2+.
 - **Oturum**: 32 bayt rastgele token, httpOnly + SameSite=Lax (+ production'da Secure) cookie; DB'de yalnızca SHA-256 özeti.
   14 gün sabit süre. Giriş denemeleri IP+e-posta bazında sınırlanır; bilinmeyen e-postada sabit süreli yanıt.
+- **Şifre sıfırlama**: tek kullanımlık bağlantı (ham kod saklanmaz, yalnızca SHA-256 özeti), 1 saat geçerli. İki yol vardır:
+  kişinin kendi talebi (`/sifremi-unuttum`, e-posta servisi bağlıysa) ve işletme sahibinin Ayarlar › Ekip'ten ürettiği
+  bağlantı (e-posta gerekmez). Talep ekranı hesabın var olup olmadığını **belli etmez**. Şifre değişince kişinin tüm
+  oturumları kapanır.
 - **CSRF**: Server Action'lar Next.js tarafından Origin kontrolünden geçer; cookie SameSite=Lax.
 - **Marka**: ad yalnızca `src/config/brand.ts`'te. Logo sağlanınca `logoSrc` ayarlanır; o zamana kadar geçici çember sembolü.
 - **Postgres'e geçiş**: `schema.prisma` → `provider = "postgresql"`, `.env` → Postgres URL, `prisma migrate dev` ile migration'ları yeniden üretin.
@@ -208,7 +212,7 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
 ## Faz 1 durumu
 
 ### Çalışanlar
-- E-posta/şifre ile giriş, çıkış, güvenli oturum; rol bazlı açılış sayfası
+- E-posta/şifre ile giriş, çıkış, güvenli oturum; rol bazlı açılış sayfası; şifre sıfırlama
 - İşletme değiştirme (çok üyelikli kullanıcı), mekan filtresi
 - Sol menü, üst bar, mobil çekmece menü; "Yakında" modüller için dürüst bilgi sayfaları
 - Genel Bakış: toplam/yeni müşteri (önceki dönem karşılaştırmalı), yaklaşan etkinlikler + kapasite, dönem kayıtları, kayıt kaynakları, kanal bazlı izinler, son aktiviteler
@@ -346,6 +350,9 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   davet üretilince eskisi geçersiz olur. Kilitlenme koruması: işletmede her zaman en az bir aktif sahip kalır, kimse kendi
   rolünü değiştiremez veya kendi erişimini kapatamaz. Erişim kapatılınca kişinin açık oturumları da düşer. Her işlem
   aktivite geçmişine yazılır.
+- **Şifresini unutan üye**: aynı ekranda kişinin satırındaki **Şifre bağlantısı** düğmesi tek kullanımlık, 1 saat geçerli
+  bir sıfırlama bağlantısı üretir; siz iletirsiniz. Kişi kendi de `/sifremi-unuttum` ekranından isteyebilir — bu yol
+  e-posta servisi (Brevo) bağlandığında çalışır ve adresin kayıtlı olup olmadığını açık etmez.
 - **Raporlar** (soldaki **Raporlar** → `/reports`; işletme sahibi ve CRM yöneticisi): 7/30/90 günlük hazır dönem veya
   **özel tarih aralığı** (en fazla bir yıl; bitiş bugünden ileri olamaz), seçili mekana göre. Karşılaştırma her zaman
   hemen öncesindeki aynı uzunluktaki dönemle yapılır. **CSV indirme**: özet, günlük seriler, etkinlikler, PR katkısı,

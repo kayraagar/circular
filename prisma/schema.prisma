@@ -33,9 +33,10 @@ model User {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  memberships Membership[]
-  sessions    Session[]
-  activities  ActivityLog[]
+  memberships    Membership[]
+  sessions       Session[]
+  activities     ActivityLog[]
+  passwordResets PasswordReset[]
 }
 
 model Session {
@@ -51,6 +52,23 @@ model Session {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// Şifre sıfırlama bağlantısı. Ham kod saklanmaz (yalnızca SHA-256 özeti); tek kullanımlıktır
+/// ve kısa sürede geçersizleşir. Kullanıldığında kişinin tüm oturumları kapatılır.
+model PasswordReset {
+  id              String    @id @default(cuid())
+  userId          String
+  tokenHash       String    @unique
+  origin          String // SELF (kişi kendi istedi) | OWNER (işletme sahibi üretti)
+  createdByUserId String?
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
 }
 
 // ─────────────────────────────────────────────── Tenant & mekan

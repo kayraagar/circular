@@ -52,6 +52,8 @@ export type ActivityAction =
   | "team.role_changed"
   | "team.status_changed"
   | "team.venues_changed"
+  | "team.reset_link_created"
+  | "team.password_reset"
   | "tenant.legal_updated";
 
 export type ActivityInput = {

@@ -3,7 +3,23 @@ import type { ServiceContext } from "@/lib/authz";
 import type { Role } from "@/lib/domain";
 import { toLocalInputValue } from "@/lib/datetime";
 
+/**
+ * Güvenlik kilidi: testler tabloları boşaltır, bu yüzden yalnızca adı "test" ile biten
+ * veritabanında çalışır. Prisma istemcisi .env dosyasını kendisi okuduğundan, testler
+ * `npm test` dışında (DATABASE_URL verilmeden) çalıştırılırsa geliştirme veritabanına
+ * bağlanır — bu kontrol o durumda silme yapmadan durdurur.
+ */
+async function assertTestDatabase() {
+  const [{ db: name }] = await db.$queryRaw<{ db: string }[]>`select current_database() as db`;
+  if (!/test$/i.test(name)) {
+    throw new Error(
+      `Testler "${name}" veritabanında çalıştırılamaz: adı "test" ile bitmeli. Testleri "npm test" ile çalıştırın.`,
+    );
+  }
+}
+
 export async function resetDb() {
+  await assertTestDatabase();
   await db.$transaction([
     db.activityLog.deleteMany(),
     db.instagramReplyLog.deleteMany(),
@@ -41,6 +57,7 @@ export async function resetDb() {
     db.membership.deleteMany(),
     db.venue.deleteMany(),
     db.session.deleteMany(),
+    db.passwordReset.deleteMany(),
     db.user.deleteMany(),
     db.tenant.deleteMany(),
   ]);
