@@ -34,8 +34,8 @@ before(async () => {
   await db.user.update({ where: { id: A.crm.userId }, data: { passwordHash: await hashPassword("eski-sifre-123") } });
 });
 
-beforeEach(() => {
-  resetPasswordRateLimits();
+beforeEach(async () => {
+  await resetPasswordRateLimits();
 });
 
 after(async () => {

@@ -973,6 +973,17 @@ model InstagramReplyLog {
 
 /// Ekip daveti: tek kullanımlık link. Ham kod saklanmaz, yalnızca SHA-256 özeti tutulur.
 /// Kabul edilince kullanıcı hesabı (yoksa) ve üyelik oluşur; link bir daha çalışmaz.
+/// Paylaşımlı istek sınırlayıcı sayacı. Bellek içi sayaç her sunucu kopyasında ayrı çalıştığı
+/// için birden fazla instance'da sınır delinirdi; sayaç veritabanında tutulunca sınır tüm
+/// kopyalar için ortaktır. Satırlar süresi dolunca temizlenir (kampanya işçisi turunda).
+model RateLimitCounter {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
 /// KVKK m.11 ilgili kişi başvurusu. İşletme (veri sorumlusu) gelen talebi buraya kaydeder;
 /// yasal cevap süresi otuz gündür. Talep sahibi CRM'de kayıtlıysa `customerId` ile bağlanır.
 model DataSubjectRequest {

@@ -852,7 +852,7 @@ function factsOf(answer: AssistantAnswer): string {
 async function resolveQuestion(ctx: ServiceContext, question: string, history: HistoryTurn[]): Promise<QuestionMatch> {
   const local = readQuestion(question);
   if (local.confident || !modelReady()) return local;
-  if (!modelLimiter.hit(ctx.tenantId).allowed) return local;
+  if (!(await modelLimiter.hit(ctx.tenantId)).allowed) return local;
 
   const intent = await classifyQuestion(question, history);
   if (!intent) return local;
@@ -877,7 +877,7 @@ export async function ask(ctx: ServiceContext, input: AskInput, now = new Date()
   const answer = await answerFor(ctx, match, input, now, history);
 
   // Cevap cümlesini model yazsın: yalnızca toplu sayılar gider ve sayılar doğrulanır.
-  if (PHRASABLE_TOPICS.has(answer.topic) && modelReady() && modelLimiter.hit(ctx.tenantId).allowed) {
+  if (PHRASABLE_TOPICS.has(answer.topic) && modelReady() && (await modelLimiter.hit(ctx.tenantId)).allowed) {
     const facts = factsOf(answer);
     const lead = await phraseLead({ question, facts });
     if (lead) return { ...answer, lead };

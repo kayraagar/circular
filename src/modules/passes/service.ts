@@ -6,6 +6,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@
 import { cleanText, foldText, fullName } from "@/lib/normalize";
 import { formatDateTime } from "@/lib/datetime";
 import { isOneOf, ROLES, type Role } from "@/lib/domain";
+import { createRateLimiter } from "@/lib/rate-limit";
 import { logActivity } from "@/modules/activity/service";
 import { registrationStats } from "@/modules/events/service";
 import {
@@ -27,6 +28,21 @@ import {
   type LoadedPass,
   type PassShare,
 } from "./internal";
+
+/**
+ * QR adreslerinin (`/q`, `/pass`) kaba kuvvet koruması. Token 192 bit olduğu için deneme
+ * yanılma pratikte imkansızdır, ama her istek veritabanına gider — sınır o yükü keser.
+ * Eşik normal kullanımın çok üstündedir: yoğun bir kapıda bile dakikada 12 okutma olmaz.
+ */
+const lookupLimiter = createRateLimiter({ windowMs: 10 * 60_000, max: 120, prefix: "qr:" });
+
+export async function checkPassLookupLimit(ip: string): Promise<{ allowed: boolean; retryAfterSec: number }> {
+  return lookupLimiter.hit(ip);
+}
+
+export async function resetPassLookupLimit() {
+  await lookupLimiter.reset();
+}
 
 function stateError(state: Exclude<PassState, "VALID">) {
   return new ConflictError(PASS_STATE_MESSAGES[state], state);

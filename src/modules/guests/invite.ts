@@ -199,7 +199,7 @@ export async function registerViaInvite(
   now = new Date(),
 ): Promise<InviteSignupResult> {
   if (!CODE.test(code)) throw new NotFoundError("Davet bulunamadı.");
-  const limit = inviteLimiter.hit(`${meta.ip}|${code}`);
+  const limit = await inviteLimiter.hit(`${meta.ip}|${code}`);
   if (!limit.allowed) {
     throw new ConflictError(`Kısa sürede çok fazla deneme yapıldı. ${Math.max(1, Math.ceil(limit.retryAfterSec / 60))} dakika sonra tekrar deneyin.`, "RATE_LIMITED");
   }

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { burnPasswordCheck, verifyPassword } from "@/lib/auth/password";
 import { createSession, destroySession, updateSessionScope } from "@/lib/auth/session";
-import { checkLoginRateLimit, clearLoginAttempts, recordFailedLogin } from "@/lib/auth/rate-limit";
+import { checkLoginRateLimit, clearLoginAttempts } from "@/lib/auth/rate-limit";
 import { getAppContext } from "@/lib/context";
 import { formString } from "@/lib/action";
 import type { ActionState } from "@/lib/action-state";
@@ -38,7 +38,8 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
   const key = `${ip}|${email}`;
-  const limit = checkLoginRateLimit(key);
+  // Deneme burada sayılır; başarılı girişte sayaç sıfırlanır.
+  const limit = await checkLoginRateLimit(key);
   if (!limit.allowed) {
     const minutes = Math.max(1, Math.ceil(limit.retryAfterSec / 60));
     return { status: "error", message: `Çok fazla deneme yapıldı. ${minutes} dakika sonra tekrar deneyin.`, values, at: Date.now() };
@@ -47,15 +48,13 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
   const user = await db.user.findUnique({ where: { email } });
   if (!user || !user.isActive) {
     await burnPasswordCheck(parsed.data.password);
-    recordFailedLogin(key);
     return { status: "error", message: GENERIC_FAILURE, values, at: Date.now() };
   }
   const ok = await verifyPassword(parsed.data.password, user.passwordHash);
   if (!ok) {
-    recordFailedLogin(key);
     return { status: "error", message: GENERIC_FAILURE, values, at: Date.now() };
   }
-  clearLoginAttempts(key);
+  await clearLoginAttempts(key);
 
   const membership = await db.membership.findFirst({
     where: { userId: user.id, status: "ACTIVE", tenant: { status: "ACTIVE" } },

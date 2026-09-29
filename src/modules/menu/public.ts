@@ -111,7 +111,7 @@ export async function publicSignup(slug: string, raw: SignupInput, meta: { ip: s
   const tenant = await findTenant(slug);
   if (!tenant) throw new NotFoundError("İşletme bulunamadı.");
 
-  const limit = signupLimiter.hit(`${meta.ip}|${tenant.id}`);
+  const limit = await signupLimiter.hit(`${meta.ip}|${tenant.id}`);
   if (!limit.allowed) {
     throw new ConflictError(`Kısa sürede çok fazla deneme yapıldı. ${Math.max(1, Math.ceil(limit.retryAfterSec / 60))} dakika sonra tekrar deneyin.`, "RATE_LIMITED");
   }

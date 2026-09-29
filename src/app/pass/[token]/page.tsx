@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { brand, venueExperienceTitle } from "@/config/brand";
 import { formatDateTime, formatRange } from "@/lib/datetime";
+import { clientIp } from "@/lib/page";
 import { PASS_PURPOSE_LABELS, PASS_STATE_MESSAGES } from "@/modules/passes/rules";
-import { getPublicPassView, type PublicPassView } from "@/modules/passes/service";
+import { checkPassLookupLimit, getPublicPassView, type PublicPassView } from "@/modules/passes/service";
 import { QrCode } from "@/components/qr-code";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { Badge } from "@/components/ui/primitives";
@@ -50,6 +51,8 @@ function Row({ label, value }: { label: string; value: string }) {
 
 /** Müşterinin kişisel QR sayfası — mekanın marka alanı ("[Mekan] — Circular"). */
 export default async function PassPage({ params }: Params) {
+  // Kaba kuvvet koruması: token 192 bit olsa da her istek veritabanına gider.
+  if (!(await checkPassLookupLimit(await clientIp())).allowed) notFound();
   const view = await loadPass((await params).token);
   if (!view) notFound();
   const { entry, perk } = view;

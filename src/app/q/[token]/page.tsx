@@ -3,9 +3,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getSession } from "@/lib/context";
+import { clientIp } from "@/lib/page";
 import { formatDateTime, formatRange, formatTime } from "@/lib/datetime";
 import { PASS_PURPOSE_LABELS, PASS_STATE_MESSAGES } from "@/modules/passes/rules";
-import { resolveStaffPass, type StaffPassView } from "@/modules/passes/service";
+import { checkPassLookupLimit, resolveStaffPass, type StaffPassView } from "@/modules/passes/service";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { buttonClass } from "@/components/ui/button";
 import { FormAlert } from "@/components/ui/primitives";
@@ -174,6 +175,15 @@ export default async function ScanPage({ params }: { params: Promise<{ token: st
   const { token } = await params;
   const session = await getSession();
   if (!session) redirect(`/pass/${encodeURIComponent(token)}`);
+
+  // Kaba kuvvet koruması: sınır normal kapı kullanımının çok üstündedir.
+  if (!(await checkPassLookupLimit(await clientIp())).allowed) {
+    return (
+      <Shell>
+        <StatusHero tone="warn" eyebrow="Doğrulama" title="Çok fazla istek" subtitle="Kısa bir süre bekleyip tekrar okutun." />
+      </Shell>
+    );
+  }
 
   const res = await resolveStaffPass(session.userId, token);
   if (res.kind === "invalid") notFound();

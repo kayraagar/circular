@@ -1,32 +1,24 @@
+import "server-only";
+import { createRateLimiter } from "@/lib/rate-limit";
+
 /**
- * Basit bellek içi giriş denemesi sınırlayıcı (sabit pencere).
- * Tek süreçli dağıtım için yeterlidir; çok instance'lı ortamda Redis/DB tabanlı
- * bir sınırlayıcıyla değiştirilmelidir (bkz. docs/ROADMAP.md).
+ * Giriş denemesi sınırlayıcı (IP + e-posta başına). Sayaç veritabanındadır, bu yüzden
+ * sınır uygulamanın tüm kopyaları için ortaktır.
  */
-const WINDOW_MS = 10 * 60 * 1000;
-const MAX_ATTEMPTS = 8;
+const limiter = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 8, prefix: "login:" });
 
-const buckets = new Map<string, { count: number; resetAt: number }>();
-
-export function checkLoginRateLimit(key: string): { allowed: boolean; retryAfterSec: number } {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    return { allowed: true, retryAfterSec: 0 };
-  }
-  return { allowed: bucket.count < MAX_ATTEMPTS, retryAfterSec: Math.ceil((bucket.resetAt - now) / 1000) };
+/**
+ * Denemeyi sayar. Başarılı girişte `clearLoginAttempts` çağrılır, bu yüzden sayaç yalnızca
+ * başarısız denemelerle dolar.
+ */
+export async function checkLoginRateLimit(key: string): Promise<{ allowed: boolean; retryAfterSec: number }> {
+  return limiter.hit(key);
 }
 
-export function recordFailedLogin(key: string) {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt <= now) buckets.set(key, { count: 1, resetAt: now + WINDOW_MS });
-  else bucket.count += 1;
-  if (buckets.size > 10_000) {
-    for (const [k, b] of buckets) if (b.resetAt <= now) buckets.delete(k);
-  }
+export async function clearLoginAttempts(key: string) {
+  await limiter.reset(key);
 }
 
-export function clearLoginAttempts(key: string) {
-  buckets.delete(key);
+export async function resetLoginRateLimit() {
+  await limiter.reset();
 }

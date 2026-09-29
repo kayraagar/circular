@@ -33,8 +33,8 @@ before(async () => {
   B = await makeTenant("kb");
 });
 
-beforeEach(() => {
-  resetTeamRateLimit();
+beforeEach(async () => {
+  await resetTeamRateLimit();
 });
 
 after(async () => {

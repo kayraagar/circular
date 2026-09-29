@@ -35,8 +35,8 @@ function hashToken(token: string) {
 
 /** Davet linkini deneyerek şifre kırmayı engeller (mevcut hesaplarda şifre sorulur). */
 const acceptLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 8 });
-export function resetTeamRateLimit() {
-  acceptLimiter.reset();
+export async function resetTeamRateLimit() {
+  await acceptLimiter.reset();
 }
 
 // ─────────────────────────────────────────────── Okuma
@@ -319,7 +319,7 @@ export type AcceptResult = { userId: string; tenantId: string; role: Role };
 
 export async function acceptInvite(token: string, raw: unknown, now = new Date()): Promise<AcceptResult> {
   const invite = await loadInvite(token, now);
-  const limit = acceptLimiter.hit(invite.tokenHash, now.getTime());
+  const limit = await acceptLimiter.hit(invite.tokenHash, now.getTime());
   if (!limit.allowed) throw new ConflictError("Çok fazla deneme yapıldı. Biraz sonra tekrar deneyin.", "RATE_LIMITED");
 
   const parsed = acceptSchema.safeParse(raw);
@@ -366,6 +366,6 @@ export async function acceptInvite(token: string, raw: unknown, now = new Date()
     return { userId: user.id, tenantId: invite.tenantId, role };
   });
 
-  acceptLimiter.reset(invite.tokenHash);
+  await acceptLimiter.reset(invite.tokenHash);
   return result;
 }

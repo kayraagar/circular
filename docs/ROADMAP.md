@@ -16,8 +16,7 @@ listesinin sınırına ulaşıldığında bunun ekranda bildirilmesi.
 Bu modülde açık kalanlar:
 
 - **QR'ı yenilemeden iptal etme**: şu an yalnızca "kodu yenile" var (eskisini iptal edip yenisini üretir); salt iptal yok.
-- **Hız sınırı**: `/q` ve `/pass` için istek sınırı yok. Token 192 bit olduğundan deneme yanılma pratikte imkansız,
-  ancak her hatalı istek veritabanına gidiyor (girişteki sınırlayıcının benzeri eklenebilir).
+- ✔ **Hız sınırı**: `/q` ve `/pass` IP başına sınırlı (10 dakikada 120 istek); sayaç veritabanında paylaşımlıdır.
 - **Toplu QR**: guest listesinin tamamı için tek seferde kod üretme ve dışa aktarma (PDF/CSV).
 - **Dağıtım**: QR bağlantısının WhatsApp/SMS ile otomatik iletilmesi — kampanya modülüne bağlı.
 - **Panel içi tarayıcı**: kamera ile tarama (BarcodeDetector) yalnızca bazı tarayıcılarda destekleniyor; telefon kamerası
@@ -190,7 +189,7 @@ Açık kalanlar:
   kişinin verisinin JSON dışa aktarımı ve panel içi başvuru defteri (`/kvkk`, 30 günlük süre takibi).
   Açık kalanlar: onay metni sürümünün (`consentTextVersion`) her kayıt anında yazılması, yurt dışı aktarım için standart
   sözleşme imzalanıp Kuruma bildirilmesi ve VERBİS kaydı. Son ikisi hukuki/idari adımdır, yazılımla tamamlanmaz.
-- **Hız sınırı:** giriş sınırlayıcısı bellek içi; çok instance'lı dağıtımda Redis/DB tabanlı olmalı.
+- **Hız sınırı:** ✔ veritabanı tabanlı paylaşımlı sayaca geçildi (`RateLimitCounter`); tüm sunucu kopyaları aynı sınırı görür.
 - **Postgres'e geçiş:** `provider = "postgresql"`, migration'ları yeniden üret; `@@index` ve composite FK'ler aynen çalışır. Etkinlik kapasite kontrolü için `SELECT ... FOR UPDATE` veya Serializable izolasyon korunmalı.
 - **Oturum:** kayan süre uzatma, "tüm oturumlardan çık", 2FA (işletme sahibi için).
 - İçe aktarma (CSV) ve mükerrer birleştirme ekranı (aynı tenant içinde, manuel onaylı).

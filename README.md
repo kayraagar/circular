@@ -54,8 +54,7 @@ npm run dev                 # http://localhost:3000
    ortam değişkenini tanımlayın — boşken uç nokta kapalıdır (503) ve gönderim yalnızca isteğin ardından işlenir.
 
 Sınırlar: Vercel'in ücretsiz planı yalnızca ticari olmayan kullanım içindir ve zamanlanmış görevleri günde bir kez
-çalıştırır (5 dakikalık aralık ücretli planlarda çalışır). Bellek içi hız sınırları her sunucu kopyası için ayrı
-çalışır.
+çalıştırır (5 dakikalık aralık ücretli planlarda çalışır).
 
 ## Demo hesapları
 
@@ -182,6 +181,10 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   bağlantı (e-posta gerekmez). Talep ekranı hesabın var olup olmadığını **belli etmez**. Şifre değişince kişinin tüm
   oturumları kapanır.
 - **CSRF**: Server Action'lar Next.js tarafından Origin kontrolünden geçer; cookie SameSite=Lax.
+- **İstek sınırı**: sayaç veritabanındadır (`RateLimitCounter`), bu yüzden sınır uygulamanın tüm kopyaları için ortaktır;
+  artırma tek atomik `INSERT ... ON CONFLICT` ile yapılır. Giriş, şifre sıfırlama, davet kabulü, herkese açık kayıt
+  formları ve QR adresleri (`/q`, `/pass`) sınırlıdır. Veritabanına ulaşılamazsa süreç içi sayaca düşülür (istekler
+  tamamen açık kalmaz). Süresi dolan satırlar kampanya işçisi turunda temizlenir.
 - **Marka**: ad yalnızca `src/config/brand.ts`'te. Logo sağlanınca `logoSrc` ayarlanır; o zamana kadar geçici çember sembolü.
 - **Postgres'e geçiş**: `schema.prisma` → `provider = "postgresql"`, `.env` → Postgres URL, `prisma migrate dev` ile migration'ları yeniden üretin.
 
@@ -408,7 +411,7 @@ Ayrıntılar ve açık kararlar: [docs/ROADMAP.md](docs/ROADMAP.md).
   Ürünler sayısal "sıra" alanıyla sıralanır (sürükle-bırak yok). Ürün fiyatı `Float` olarak saklanır.
 - Menüden kayıtta **telefon doğrulaması (SMS/OTP) yok**: yeni bir kişi başkasının numarasıyla kayıt olabilir. Mevcut
   kayıtlara dokunulmaz, ama doğrulanmamış yeni kayıtlardaki izinler kampanya gönderimi başlamadan önce doğrulanmalıdır.
-  Hız sınırı bellek içidir. Aydınlatma metninin içeriği işletmenin sorumluluğundadır (panelde yalnızca adresi girilir).
+  Aydınlatma metninin içeriği işletmenin sorumluluğundadır (panelde yalnızca adresi girilir).
   Popup gösterim/tıklama sayısı ölçülmez; yalnızca gerçekleşen kayıtlar CRM'de görünür. İşletme başına tek popup vardır.
 - PR tarafında: PR davet etme ve etkinliğe atama arayüzü yok (PR, mekan kapsamındaki tüm yayındaki etkinliklere misafir
   ekleyebilir; `EventPrAssignment` henüz kullanılmıyor). Davet linkinin açılma/tıklama sayısı ölçülmez; yalnızca

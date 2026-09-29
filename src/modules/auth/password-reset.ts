@@ -42,9 +42,9 @@ const requestLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 5 });
 /** Bağlantı kodunu deneyerek şifre değiştirmeyi engeller. */
 const completeLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 10 });
 
-export function resetPasswordRateLimits() {
-  requestLimiter.reset();
-  completeLimiter.reset();
+export async function resetPasswordRateLimits() {
+  await requestLimiter.reset();
+  await completeLimiter.reset();
 }
 
 // ─────────────────────────────────────────────── Bağlantı üretme
@@ -72,7 +72,7 @@ export async function requestPasswordReset(raw: unknown, ip: string, now = new D
   const email = normalizeEmail(parsed.data.email) ?? "";
   const emailConfigured = brevoReady();
 
-  if (!requestLimiter.hit(`${ip}`, now.getTime()).allowed || !requestLimiter.hit(email, now.getTime()).allowed) {
+  if (!(await requestLimiter.hit(`${ip}`, now.getTime())).allowed || !(await requestLimiter.hit(email, now.getTime())).allowed) {
     throw new ConflictError("Çok fazla deneme yapıldı. Biraz sonra tekrar deneyin.", "RATE_LIMITED");
   }
 
@@ -163,7 +163,7 @@ const completeSchema = z
 /** Yeni şifreyi yazar, bağlantıyı tüketir ve kişinin tüm oturumlarını kapatır. */
 export async function completePasswordReset(token: string, raw: unknown, now = new Date()): Promise<{ email: string }> {
   const reset = await loadReset(token, now);
-  if (!completeLimiter.hit(reset.tokenHash, now.getTime()).allowed) {
+  if (!(await completeLimiter.hit(reset.tokenHash, now.getTime())).allowed) {
     throw new ConflictError("Çok fazla deneme yapıldı. Biraz sonra tekrar deneyin.", "RATE_LIMITED");
   }
   const parsed = completeSchema.safeParse(raw);
@@ -192,6 +192,6 @@ export async function completePasswordReset(token: string, raw: unknown, now = n
     }
   });
 
-  completeLimiter.reset(reset.tokenHash);
+  await completeLimiter.reset(reset.tokenHash);
   return { email: reset.user.email };
 }
