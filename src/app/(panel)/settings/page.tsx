@@ -2,23 +2,25 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requirePermission } from "@/lib/context";
 import { formatDate } from "@/lib/datetime";
-import { VENUE_TYPE_LABELS, labelOf } from "@/lib/domain";
 import { brand } from "@/config/brand";
 import { getTenantSettings } from "@/modules/settings/service";
+import { listVenues } from "@/modules/venues/service";
 import { getTeam } from "@/modules/team/service";
 import { getTenantLegal } from "@/modules/legal/tenant-legal";
 import { listDataRequests } from "@/modules/privacy/requests";
 import { legalDocuments } from "@/modules/legal/documents";
 import { TeamManager } from "./team-manager";
+import { VenueManager } from "./venue-manager";
 import { LegalForm } from "./legal-form";
 import { BrandMark } from "@/components/ui/brand-mark";
-import { Badge, Card, CardHeader, PageHeader } from "@/components/ui/primitives";
+import { Card, CardHeader, PageHeader } from "@/components/ui/primitives";
 
 export const metadata: Metadata = { title: "Ayarlar" };
 
 export default async function SettingsPage() {
   const ctx = await requirePermission("settings.view");
-  const { tenant, venues } = await getTenantSettings(ctx.service);
+  const { tenant } = await getTenantSettings(ctx.service);
+  const venues = await listVenues(ctx.service);
   const [team, legal, privacy] = await Promise.all([getTeam(ctx.service), getTenantLegal(ctx.service), listDataRequests(ctx.service)]);
   const documents = legalDocuments();
 
@@ -27,7 +29,7 @@ export default async function SettingsPage() {
       <PageHeader
         eyebrow={tenant.name}
         title="Ayarlar"
-        description="İşletme ve mekan bilgileri salt okunurdur. Ekip üyelerini buradan davet eder, rollerini ve mekan erişimini yönetirsiniz."
+        description="Mekanlarınızı ve ekibinizi buradan yönetirsiniz: mekan ekleme, rol değiştirme, mekan erişimi ve yasal bilgiler."
       />
       <div className="space-y-6">
         <Card>
@@ -46,26 +48,7 @@ export default async function SettingsPage() {
           </dl>
         </Card>
 
-        <Card>
-          <CardHeader title="Mekanlar" description="Bir işletmenin birden fazla mekanı/şubesi olabilir. Müşteri kaydı işletme düzeyindedir." />
-          <ul>
-            {venues.map((v) => (
-              <li key={v.id} className="flex flex-col gap-2 border-line px-5 py-4 sm:flex-row sm:items-center [&+li]:border-t">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-fg">{v.name}</p>
-                  <p className="text-[13px] text-muted">
-                    {labelOf(VENUE_TYPE_LABELS, v.type)}
-                    {v.city ? ` · ${v.city}` : ""}
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-[12px] text-muted">/v/{v.slug}</span>
-                  <Badge tone="muted">Public sayfa henüz yok</Badge>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <VenueManager venues={venues} />
 
         <TeamManager members={team.members} invites={team.invites} venues={team.venues} />
 

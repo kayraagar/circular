@@ -358,6 +358,11 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   "bu işletme aydınlatma bilgilerini henüz tamamlamadı" uyarısı çıkar.
   **Rol dağılımı:** panele giren kişilerin verisi için veri sorumlusu Circular, mekanın müşterileri için ilgili işletmedir;
   Circular bu veriler bakımından veri işleyendir.
+- **Mekan yönetimi** (soldaki **Ayarlar**; yalnızca işletme sahibi): mekan ekler, adını/türünü/şehrini/adresini
+  düzenler ve mekanı kapatıp açarsınız. **Mekan silinmez** — geçmiş etkinlik, giriş ve avantaj kayıtları ona bağlıdır;
+  kapatılan mekanda yeni kayıt açılmaz, geçmiş korunur. İşletmede her zaman en az bir açık mekan kalır. Kısa ad
+  (`/v/<kısa-ad>`) platform genelinde benzersizdir; boş bırakılırsa mekan adından türetilir (Türkçe harfler sadeleşir),
+  çakışırsa sonuna sayı eklenir. Kısa adı değiştirmek daha önce paylaşılmış bağlantıları kırar; arayüz uyarır.
 - **Ekip yönetimi** (soldaki **Ayarlar**; yalnızca işletme sahibi): ekip üyelerini davet eder, rollerini ve mekan
   erişimlerini değiştirir, erişimlerini kapatıp açarsınız. **Davet e-posta göndermez:** tek kullanımlık bir bağlantı
   üretilir, siz iletirsiniz. Kişi bağlantıyı açıp kendi şifresini belirler (en az 10 karakter); o e-postayla zaten hesabı

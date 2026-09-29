@@ -61,6 +61,10 @@ export type ActivityAction =
   | "team.venues_changed"
   | "team.reset_link_created"
   | "team.password_reset"
+  | "venue.created"
+  | "venue.updated"
+  | "venue.closed"
+  | "venue.activated"
   | "tenant.legal_updated";
 
 export type ActivityInput = {
@@ -86,6 +90,7 @@ export type ActivityInput = {
     | "membership"
     | "team_invite"
     | "data_request"
+    | "venue"
     | "tenant";
   entityId: string;
   customerId?: string | null;

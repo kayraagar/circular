@@ -191,6 +191,14 @@ export function describeActivity(item: ActivityItem): ActivityDescription {
       return { verb: "şifre sıfırlama bağlantısı üretti", subject: { label: str(m.name) || "üye", href: "/settings" } };
     case "team.password_reset":
       return { verb: "şifresini yeniledi", subject: { label: str(m.name) || "üye", href: "/settings" } };
+    case "venue.created":
+      return { verb: "mekan ekledi", subject: { label: str(m.name) || "mekan", href: "/settings" } };
+    case "venue.updated":
+      return { verb: "mekan bilgilerini güncelledi", subject: { label: str(m.name) || "mekan", href: "/settings" }, detail: m.slugChanged ? "kısa ad değişti" : undefined };
+    case "venue.closed":
+      return { verb: "mekanı kapattı", subject: { label: str(m.name) || "mekan", href: "/settings" } };
+    case "venue.activated":
+      return { verb: "mekanı yeniden açtı", subject: { label: str(m.name) || "mekan", href: "/settings" } };
     case "tenant.legal_updated":
       return { verb: "veri sorumlusu bilgilerini güncelledi", subject: { label: "Yasal bilgiler", href: "/settings" } };
     default:
