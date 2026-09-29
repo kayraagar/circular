@@ -112,6 +112,11 @@ export default async function CustomerProfilePage({ params }: { params: Promise<
       {(archived || customer.tags.length > 0) && (
         <div className="-mt-4 mb-8 flex flex-wrap items-center gap-1.5">
           {archived && <Badge tone="caution">Arşivde · {formatDate(customer.archivedAt!)}</Badge>}
+          {customer.phone && (
+            <Badge tone={customer.phoneVerifiedAt ? "positive" : "muted"}>
+              {customer.phoneVerifiedAt ? `Numara doğrulandı · ${formatDate(customer.phoneVerifiedAt)}` : "Numara doğrulanmadı"}
+            </Badge>
+          )}
           {customer.tags.map((t) => (
             <Link key={t.tag.id} href={`/customers?tag=${t.tag.id}`} className="rounded-full">
               <Badge>{t.tag.name}</Badge>

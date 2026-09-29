@@ -29,18 +29,21 @@ import {
 
 const DAY_MS = 24 * 3600 * 1000;
 
-export type AudienceSpec =
+/** `verifiedOnly`: yalnızca numarası SMS koduyla doğrulanmış kişilere gönder (e-postada etkisizdir). */
+export type AudienceSpec = { verifiedOnly?: boolean } & (
   | { kind: "SEGMENT"; key: SegmentKey }
   | { kind: "TAG"; tagId: string }
   | { kind: "EVENT"; eventId: string }
-  | { kind: "SELECTED"; customerIds: string[] };
+  | { kind: "SELECTED"; customerIds: string[] }
+);
 
 const id = z.string().trim().min(1).max(40);
+const verifiedOnly = z.boolean().optional();
 const audienceSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("SEGMENT"), key: z.enum(SEGMENT_KEYS) }),
-  z.object({ kind: z.literal("TAG"), tagId: id }),
-  z.object({ kind: z.literal("EVENT"), eventId: id }),
-  z.object({ kind: z.literal("SELECTED"), customerIds: z.array(id).max(MAX_SELECTED_CUSTOMERS) }),
+  z.object({ kind: z.literal("SEGMENT"), key: z.enum(SEGMENT_KEYS), verifiedOnly }),
+  z.object({ kind: z.literal("TAG"), tagId: id, verifiedOnly }),
+  z.object({ kind: z.literal("EVENT"), eventId: id, verifiedOnly }),
+  z.object({ kind: z.literal("SELECTED"), customerIds: z.array(id).max(MAX_SELECTED_CUSTOMERS), verifiedOnly }),
 ]);
 
 export function parseAudience(raw: unknown): AudienceSpec {
@@ -50,7 +53,7 @@ export function parseAudience(raw: unknown): AudienceSpec {
   if (spec.kind === "SELECTED") {
     const ids = [...new Set(spec.customerIds)];
     if (ids.length === 0) throw new ValidationError({ audience: ["En az bir kişi seçin."] });
-    return { kind: "SELECTED", customerIds: ids };
+    return { kind: "SELECTED", customerIds: ids, verifiedOnly: spec.verifiedOnly };
   }
   return spec;
 }
@@ -61,6 +64,14 @@ export function reachableWhere(channel: CampaignChannel): Prisma.CustomerWhereIn
     ...(channel === "EMAIL" ? { email: { not: null } } : { phone: { not: null } }),
     consents: { some: { channel, status: "GRANTED" } },
   };
+}
+
+/**
+ * "Yalnızca doğrulanmış numara" filtresi. Doğrulama telefonla yapılır; e-posta kanalında
+ * anlamı yoktur, bu yüzden orada uygulanmaz.
+ */
+function verifiedWhere(spec: AudienceSpec, channel: CampaignChannel): Prisma.CustomerWhereInput[] {
+  return spec.verifiedOnly && channel !== "EMAIL" ? [{ phoneVerifiedAt: { not: null } }] : [];
 }
 
 /** Kanalın iletişim bilgisi eksik olanlar (telefon veya e-posta yok). */
@@ -149,15 +160,20 @@ export async function summarizeAudience(ctx: ServiceContext, spec: AudienceSpec,
   assertCan(ctx, "campaigns.manage");
   const { where, label, key } = await resolveAudience(ctx, spec, now);
   const reachableFilter = reachableWhere(channel);
-  const [total, noContact, reachable, reachableTr] = await Promise.all([
+  const verified = verifiedWhere(spec, channel);
+  const [total, noContact, reachableAll, reachable, reachableTr] = await Promise.all([
     db.customer.count({ where }),
     db.customer.count({ where: { AND: [where, missingContactWhere(channel)] } }),
     db.customer.count({ where: { AND: [where, reachableFilter] } }),
-    channel === "EMAIL" ? Promise.resolve(0) : db.customer.count({ where: { AND: [where, reachableFilter, { phone: { startsWith: "+90" } }] } }),
+    db.customer.count({ where: { AND: [where, reachableFilter, ...verified] } }),
+    channel === "EMAIL"
+      ? Promise.resolve(0)
+      : db.customer.count({ where: { AND: [where, reachableFilter, ...verified, { phone: { startsWith: "+90" } }] } }),
   ]);
   const exclusions: Partial<Record<ExclusionReason, number>> = {};
   if (noContact) exclusions[channel === "EMAIL" ? "NO_EMAIL" : "NO_PHONE"] = noContact;
-  if (total - noContact - reachable > 0) exclusions.NO_CONSENT = total - noContact - reachable;
+  if (total - noContact - reachableAll > 0) exclusions.NO_CONSENT = total - noContact - reachableAll;
+  if (reachableAll > reachable) exclusions.UNVERIFIED_PHONE = reachableAll - reachable;
   // SMS yalnızca Türkiye numaralarına gider
   const eligible = channel === "SMS" ? reachableTr : reachable;
   if (channel === "SMS" && reachable > reachableTr) exclusions.FOREIGN_NUMBER = reachable - reachableTr;
@@ -172,7 +188,7 @@ export type SendableCustomer = { id: string; phone: string | null; email: string
 export async function loadSendableCustomers(ctx: ServiceContext, spec: AudienceSpec, now = new Date(), channel: CampaignChannel = "WHATSAPP") {
   const { where, label, key } = await resolveAudience(ctx, spec, now);
   const customers: SendableCustomer[] = await db.customer.findMany({
-    where: { AND: [where, reachableWhere(channel), ...(channel === "SMS" ? [{ phone: { startsWith: "+90" } }] : [])] },
+    where: { AND: [where, reachableWhere(channel), ...verifiedWhere(spec, channel), ...(channel === "SMS" ? [{ phone: { startsWith: "+90" } }] : [])] },
     select: { id: true, phone: true, email: true },
     orderBy: { createdAt: "asc" },
     take: MAX_CAMPAIGN_RECIPIENTS,

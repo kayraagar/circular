@@ -369,6 +369,12 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
 - **Şifresini unutan üye**: aynı ekranda kişinin satırındaki **Şifre bağlantısı** düğmesi tek kullanımlık, 1 saat geçerli
   bir sıfırlama bağlantısı üretir; siz iletirsiniz. Kişi kendi de `/sifremi-unuttum` ekranından isteyebilir — bu yol
   e-posta servisi (Brevo) bağlandığında çalışır ve adresin kayıtlı olup olmadığını açık etmez.
+- **Telefon doğrulaması**: kayıt formuna başkasının numarası yazılabilir; o numaraya ticari ileti göndermek hem İYS hem
+  KVKK açısından sorunludur. SMS hesabı (Netgsm) bağlıysa menüden kayıttan hemen sonra tek kullanımlık 6 haneli kod
+  gönderilir ve kayıt ekranında sorulur. Kod düz saklanmaz (SHA-256), 10 dakika geçerlidir, en fazla 5 kez denenir ve
+  numara başına gönderim sınırlıdır. Doğrulama kodu **ticari ileti değildir**, İYS filtresi uygulanmaz. Doğrulanan numara
+  `Customer.phoneVerifiedAt` ile işaretlenir; kampanya gönderiminde **"Yalnızca doğrulanmış numaralar"** seçeneği vardır.
+  SMS hesabı bağlı değilse doğrulama hiç başlatılmaz, kayıt akışı aynen çalışır.
 - **Tercih merkezi** (`/tercih/<imzalı-bağlantı>`, herkese açık): kişi üç kanaldaki (WhatsApp, SMS, e-posta) iletişim
   iznini kendisi açıp kapatır. Bağlantı kişi kimliğinin HMAC imzasıdır (veritabanında satır tutulmaz); sayfada kişisel
   veri olarak yalnızca **maskeli ad** görünür, telefon/e-posta/geçmiş gösterilmez. İletişim bilgisi olmayan kanal

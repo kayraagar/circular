@@ -80,8 +80,8 @@ kayıtlıysa hiçbir şey değişmez. Bal küpü alanı ve IP başına hız sın
 
 Bu bölümde açık kalanlar:
 
-- **Telefon doğrulaması (SMS/OTP):** yeni kayıtlarda izinlerin ve ikramın gerçekten numara sahibine ait olduğunu
-  kanıtlamak için gerekli; kampanya gönderimi başlamadan önce şart.
+- ✔ **Telefon doğrulaması (SMS/OTP)** eklendi: SMS hesabı bağlıyken kayıttan sonra tek kullanımlık kod sorulur,
+  doğrulanan numara `Customer.phoneVerifiedAt` ile işaretlenir, kampanya kitlesi "yalnızca doğrulanmış" ile sınırlanabilir.
 - ✔ **Tercih merkezi** eklendi: `/tercih/<imzalı-bağlantı>`; kişi üç kanalın iznini kendisi yönetir.
 - **Ölçüm:** popup gösterim ve tıklama olayları (şu an yalnızca gerçekleşen kayıtlar sayılabilir).
 - Taslak/yayın sürümü, panelden menü QR'ı üretimi, mekan bazlı menü, birden fazla kampanya.

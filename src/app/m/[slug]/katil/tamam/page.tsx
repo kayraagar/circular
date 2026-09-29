@@ -7,6 +7,8 @@ import { firstParam, type SearchParams } from "@/lib/page";
 import { publicMenuPath } from "@/modules/menu/campaign";
 import { getPublicMenu } from "@/modules/menu/public";
 import { readableForeground, withAlpha } from "@/modules/menu/theme";
+import { readVerificationHandle } from "@/modules/verification/service";
+import { PhoneVerifyForm } from "@/components/verify/phone-verify";
 
 export const metadata: Metadata = { title: "Üyelik" };
 
@@ -28,7 +30,10 @@ const MESSAGES: Record<string, { title: string; body: (tenant: string) => string
 
 export default async function SignupDonePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: SearchParams }) {
   const { slug } = await params;
-  const status = firstParam((await searchParams).durum);
+  const query = await searchParams;
+  const status = firstParam(query.durum);
+  const handle = firstParam(query.dogrula);
+  const verification = handle ? await readVerificationHandle(handle) : { open: false as const };
   const data = await getPublicMenu(slug);
   if (!data) notFound();
   const { tenant, menu } = data;
@@ -47,6 +52,19 @@ export default async function SignupDonePage({ params, searchParams }: { params:
         <p className="mt-3 text-[15px] leading-relaxed" style={{ color: withAlpha(fg, 0.7) }}>
           {message.body(tenant.name)}
         </p>
+        {verification.open && (
+          <PhoneVerifyForm
+            handle={handle}
+            maskedPhone={verification.maskedPhone}
+            colors={{
+              fg,
+              accent: menu.config.accentColor,
+              onAccent: readableForeground(menu.config.accentColor),
+              border: withAlpha(fg, 0.25),
+            }}
+          />
+        )}
+
         <Link
           href={publicMenuPath(tenant.slug)}
           className="mt-8 inline-flex h-12 items-center justify-center rounded-xl px-6 text-[15px] font-semibold"

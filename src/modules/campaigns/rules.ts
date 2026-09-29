@@ -44,7 +44,7 @@ export const MAX_SELECTED_CUSTOMERS = 500;
 export const MAX_TEST_RECIPIENTS = 5;
 
 /** Gönderim öncesi veya gönderim anında bir kişinin elenme nedeni. */
-export const EXCLUSION_REASONS = ["NO_PHONE", "NO_EMAIL", "NO_CONSENT", "IYS_NOT_APPROVED", "ARCHIVED", "PHONE_CHANGED", "FOREIGN_NUMBER", "LIMIT"] as const;
+export const EXCLUSION_REASONS = ["NO_PHONE", "NO_EMAIL", "NO_CONSENT", "IYS_NOT_APPROVED", "ARCHIVED", "PHONE_CHANGED", "FOREIGN_NUMBER", "UNVERIFIED_PHONE", "LIMIT"] as const;
 export type ExclusionReason = (typeof EXCLUSION_REASONS)[number];
 export const EXCLUSION_LABELS: Record<ExclusionReason, string> = {
   NO_PHONE: "Telefon numarası yok",
@@ -54,6 +54,7 @@ export const EXCLUSION_LABELS: Record<ExclusionReason, string> = {
   ARCHIVED: "Arşivlendi",
   PHONE_CHANGED: "İletişim bilgisi değişti",
   FOREIGN_NUMBER: "Yurt dışı numara (SMS yalnızca Türkiye numaralarına)",
+  UNVERIFIED_PHONE: "Numara SMS koduyla doğrulanmadı",
   LIMIT: `Kampanya başına ${MAX_CAMPAIGN_RECIPIENTS} kişi sınırı`,
 };
 

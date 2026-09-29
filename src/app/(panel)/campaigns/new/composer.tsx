@@ -146,6 +146,8 @@ export function CampaignComposer({
   const [sending, setSending] = useState<"TEST" | "LIVE" | null>(null);
   /** Boş = hemen gönder. Doluysa kampanya planlanır (İstanbul saati). */
   const [scheduledAt, setScheduledAt] = useState("");
+  /** Yalnızca numarası SMS koduyla doğrulanmış kişilere gönder. */
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const smsInserter = useNameInserter(smsBody, setSmsBody, SMS_LIMITS.body);
@@ -153,9 +155,11 @@ export function CampaignComposer({
 
   // Tek tek seçimde kitle seçilen kişilerden oluşur
   const effectiveAudience: AudienceSpec | null = useMemo(() => {
-    if (mode === "SELECTED") return selected.length ? { kind: "SELECTED", customerIds: selected.map((s) => s.id) } : null;
-    return audience;
-  }, [mode, audience, selected]);
+    const base: AudienceSpec | null =
+      mode === "SELECTED" ? (selected.length ? { kind: "SELECTED", customerIds: selected.map((s) => s.id) } : null) : audience;
+    // Doğrulama telefonla yapılır; e-posta kampanyasında seçenek uygulanmaz.
+    return base && verifiedOnly && channel !== "EMAIL" ? { ...base, verifiedOnly: true } : base;
+  }, [mode, audience, selected, verifiedOnly, channel]);
   const audienceKey = JSON.stringify(effectiveAudience);
 
   useEffect(() => {
@@ -589,6 +593,24 @@ export function CampaignComposer({
                 {channel === "EMAIL" && "Ücret Circular'ın e-posta servisi planına dahildir. "}
                 Gönderim anında izinler yeniden kontrol edilir.
               </p>
+              {channel !== "EMAIL" && (
+                <label htmlFor="verified-only" className="flex cursor-pointer gap-2.5 rounded-field border border-line px-3.5 py-3 transition-colors hover:border-line-strong has-checked:border-fg has-checked:bg-raised">
+                  <input
+                    id="verified-only"
+                    type="checkbox"
+                    checked={verifiedOnly}
+                    onChange={(e) => setVerifiedOnly(e.target.checked)}
+                    className="mt-0.5 size-3.5 shrink-0 accent-white"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-[13px] text-fg">Yalnızca doğrulanmış numaralar</span>
+                    <span className="mt-0.5 block text-[12px] leading-relaxed text-muted">
+                      Numarasını SMS koduyla doğrulamış kişilere gönderir. Doğrulama, SMS hesabı bağlıyken kayıt sırasında
+                      istenir.
+                    </span>
+                  </span>
+                </label>
+              )}
               {preview.liveBlock && <FormAlert tone="info">{preview.liveBlock.message}</FormAlert>}
             </div>
           )}

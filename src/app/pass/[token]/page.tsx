@@ -3,14 +3,16 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { brand, venueExperienceTitle } from "@/config/brand";
 import { formatDateTime, formatRange } from "@/lib/datetime";
-import { clientIp } from "@/lib/page";
+import { clientIp, firstParam, type SearchParams } from "@/lib/page";
+import { readVerificationHandle } from "@/modules/verification/service";
+import { PhoneVerifyForm } from "@/components/verify/phone-verify";
 import { PASS_PURPOSE_LABELS, PASS_STATE_MESSAGES } from "@/modules/passes/rules";
 import { checkPassLookupLimit, getPublicPassView, type PublicPassView } from "@/modules/passes/service";
 import { QrCode } from "@/components/qr-code";
 import { BrandMark } from "@/components/ui/brand-mark";
 import { Badge } from "@/components/ui/primitives";
 
-type Params = { params: Promise<{ token: string }> };
+type Params = { params: Promise<{ token: string }>; searchParams?: SearchParams };
 
 const loadPass = cache((token: string) => getPublicPassView(token));
 
@@ -50,12 +52,15 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 /** Müşterinin kişisel QR sayfası — mekanın marka alanı ("[Mekan] — Circular"). */
-export default async function PassPage({ params }: Params) {
+export default async function PassPage({ params, searchParams }: Params) {
   // Kaba kuvvet koruması: token 192 bit olsa da her istek veritabanına gider.
   if (!(await checkPassLookupLimit(await clientIp())).allowed) notFound();
   const view = await loadPass((await params).token);
   if (!view) notFound();
   const { entry, perk } = view;
+  // Kayıt sonrası gelindiyse telefon doğrulama kutusu gösterilir.
+  const handle = firstParam((await searchParams)?.dogrula);
+  const verification = handle ? await readVerificationHandle(handle) : { open: false as const };
   const message = stateMessage(view);
 
   return (
@@ -124,6 +129,12 @@ export default async function PassPage({ params }: Params) {
         <p className="mt-5 text-center text-xs leading-relaxed text-muted">
           Bu kod size özeldir ve kişisel bilgi içermez. Ekran görüntüsünü başkalarıyla paylaşmayın.
         </p>
+        {verification.open && (
+          <div className="mx-auto mt-6 max-w-sm">
+            <PhoneVerifyForm handle={handle} maskedPhone={verification.maskedPhone} />
+          </div>
+        )}
+
         <p className="mt-3 text-center text-xs text-muted">
           <a href={view.preferenceUrl} className="underline underline-offset-4 transition-colors hover:text-fg">
             İletişim tercihlerim

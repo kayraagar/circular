@@ -93,7 +93,8 @@ export function resetSignupRateLimit() {
 }
 
 export type SignupResult =
-  | { status: "created"; passToken: string | null; perk: "ISSUED" | "NONE" | "UNAVAILABLE" }
+  // tenantId/phone: kayıt sonrası telefon doğrulaması başlatmak için (URL'ye yazılmaz).
+  | { status: "created"; passToken: string | null; perk: "ISSUED" | "NONE" | "UNAVAILABLE"; tenantId: string; phone: string | null }
   | { status: "existing" }
   | { status: "ignored" };
 
@@ -198,10 +199,10 @@ export async function publicSignup(slug: string, raw: SignupInput, meta: { ip: s
       }
 
       const perk = active?.perk ?? null;
-      if (!perk) return { status: "created", passToken: null, perk: "NONE" } as const;
+      if (!perk) return { status: "created", passToken: null, perk: "NONE", tenantId: tenant.id, phone: customer.phone } as const;
 
       const state = evaluatePerkPass({ revokedAt: null, useCount: 0, maxUses: 1 }, perk, 0, now);
-      if (state !== "VALID" && state !== "NOT_YET_VALID") return { status: "created", passToken: null, perk: "UNAVAILABLE" } as const;
+      if (state !== "VALID" && state !== "NOT_YET_VALID") return { status: "created", passToken: null, perk: "UNAVAILABLE", tenantId: tenant.id, phone: customer.phone } as const;
 
       const pass = await createPass(tx, {
         tenantId: tenant.id,
@@ -218,7 +219,7 @@ export async function publicSignup(slug: string, raw: SignupInput, meta: { ip: s
         customerId: customer.id,
         metadata: { customerName, perkName: perk.name, purpose: "PERK_REDEMPTION" },
       });
-      return { status: "created", passToken: derivePassToken(pass.id), perk: "ISSUED" } as const;
+      return { status: "created", passToken: derivePassToken(pass.id), perk: "ISSUED", tenantId: tenant.id, phone: customer.phone } as const;
     });
   } catch (error) {
     // Aynı bilgiyle eşzamanlı ikinci gönderim: ilk kayıt geçerlidir, ikinci hiçbir şey değiştirmez.

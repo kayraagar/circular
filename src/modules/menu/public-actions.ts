@@ -6,6 +6,8 @@ import { formString, toErrorState } from "@/lib/action";
 import type { ActionState } from "@/lib/action-state";
 import { signupPath } from "./campaign";
 import { publicSignup, type SignupResult } from "./public";
+import { startPhoneVerification } from "@/modules/verification/service";
+import { clientIp } from "@/lib/page";
 
 const FIELDS = ["firstName", "lastName", "phone", "email"] as const;
 
@@ -24,7 +26,23 @@ export async function publicSignupAction(_prev: ActionState, formData: FormData)
     return toErrorState(error, { ...values, consents });
   }
 
-  if (result.status === "created" && result.passToken) redirect(`/pass/${result.passToken}`);
+  // Telefon doğrulaması: SMS hesabı bağlıysa kod gönderilir. Numara adrese yazılmaz;
+  // yalnızca doğrulama kaydının imzalı kolu taşınır.
+  let handle: string | null = null;
+  if (result.status === "created" && result.phone) {
+    try {
+      const started = await startPhoneVerification(result.tenantId, result.phone, { ip: await clientIp() });
+      if (started.status === "sent") handle = started.handle;
+    } catch (error) {
+      // Doğrulama gönderilemezse kayıt yine de geçerlidir; akış kesilmez.
+      console.error("[signup] doğrulama kodu gönderilemedi", error);
+    }
+  }
+  const verify = handle ? `dogrula=${encodeURIComponent(handle)}` : "";
+
+  if (result.status === "created" && result.passToken) {
+    redirect(`/pass/${result.passToken}${verify ? `?${verify}` : ""}`);
+  }
   const durum = result.status === "existing" ? "kayitli" : result.status === "created" && result.perk === "UNAVAILABLE" ? "ikram-yok" : "tamam";
-  redirect(`${signupPath(slug)}/tamam?durum=${durum}`);
+  redirect(`${signupPath(slug)}/tamam?durum=${durum}${verify ? `&${verify}` : ""}`);
 }

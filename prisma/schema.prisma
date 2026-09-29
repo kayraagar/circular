@@ -104,6 +104,7 @@ model Tenant {
   instagramAutoReplies InstagramAutoReply[]
   teamInvites          TeamInvite[]
   dataRequests         DataSubjectRequest[]
+  phoneVerifications   PhoneVerification[]
 
   // ─── Veri sorumlusu bilgileri (müşteriye açık formlarda ve ticari iletilerde gösterilir)
   legalName    String? // ticaret unvanı
@@ -197,6 +198,8 @@ model Customer {
   archivedAt         DateTime?
   /// KVKK silme talebiyle kimlik bilgileri kalıcı olarak temizlendi (kayıt istatistik için kalır)
   anonymizedAt       DateTime?
+  /// Numaranın gerçekten kişiye ait olduğu tek kullanımlık SMS koduyla kanıtlandı
+  phoneVerifiedAt    DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -973,6 +976,26 @@ model InstagramReplyLog {
 
 /// Ekip daveti: tek kullanımlık link. Ham kod saklanmaz, yalnızca SHA-256 özeti tutulur.
 /// Kabul edilince kullanıcı hesabı (yoksa) ve üyelik oluşur; link bir daha çalışmaz.
+/// Telefon doğrulama (tek kullanımlık SMS kodu). Kod düz saklanmaz, yalnızca SHA-256 özeti;
+/// kısa sürede geçersizleşir ve sınırlı sayıda denenebilir. Numara başına tek açık kayıt olur.
+model PhoneVerification {
+  id         String    @id @default(cuid())
+  tenantId   String
+  phone      String // E.164
+  codeHash   String
+  attempts   Int       @default(0)
+  sentCount  Int       @default(1)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, phone])
+  @@index([expiresAt])
+}
+
 /// Paylaşımlı istek sınırlayıcı sayacı. Bellek içi sayaç her sunucu kopyasında ayrı çalıştığı
 /// için birden fazla instance'da sınır delinirdi; sayaç veritabanında tutulunca sınır tüm
 /// kopyalar için ortaktır. Satırlar süresi dolunca temizlenir (kampanya işçisi turunda).
