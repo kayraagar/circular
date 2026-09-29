@@ -50,9 +50,12 @@ npm run dev                 # http://localhost:3000
 5. **Webhook adresleri** (kanal kurulduğunda sağlayıcıya girilir): `/api/webhooks/whatsapp`,
    `/api/webhooks/instagram`, `/api/webhooks/brevo`. Adresler ilgili kanal ekranlarında hazır gösterilir.
 
+6. **Zamanlayıcı**: `vercel.json` içindeki iş `/api/cron/campaigns` adresini 5 dakikada bir çağırır. `CRON_SECRET`
+   ortam değişkenini tanımlayın — boşken uç nokta kapalıdır (503) ve gönderim yalnızca isteğin ardından işlenir.
+
 Sınırlar: Vercel'in ücretsiz planı yalnızca ticari olmayan kullanım içindir ve zamanlanmış görevleri günde bir kez
-çalıştırır; kampanya kuyruğu isteğin ardından (`after()`) işlenir, yarım kalırsa kampanya sayfasındaki "Gönderime
-devam et" ile sürdürülür. Bellek içi hız sınırları her sunucu kopyası için ayrı çalışır.
+çalıştırır (5 dakikalık aralık ücretli planlarda çalışır). Bellek içi hız sınırları her sunucu kopyası için ayrı
+çalışır.
 
 ## Demo hesapları
 
@@ -287,6 +290,14 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
     Meta ücreti (Türkiye pazarlama ücreti, `MARKETING_RATE_TR_USD`) görünür; onayla tek tuşta gönderilir.
   - **Gönderim**: mesajlar veritabanı kuyruğuna yazılır ve istek bittikten sonra (`after()`) gönderilir. Her mesaj yalnızca
     bir kez alınır; gönderim anında arşiv, telefon değişimi, WhatsApp izni ve İYS onayı yeniden kontrol edilir.
+  - **Kalıcı işçi** (`/api/cron/campaigns`, 5 dakikada bir): sunucu yarıda kesilse de gönderim kaldığı yerden sürer.
+    İşçi zamanı gelen planlı kampanyaları başlatır, yarım kalan kuyrukları sürdürür ve askıda kalan mesajları kurtarır.
+    **Mükerrer mesaj kuralı:** yalnızca sağlayıcının açıkça reddettiği hatalar (hız sınırı, sağlayıcı sistem hatası)
+    otomatik tekrarlanır — o durumda mesajın gitmediği kesindir. Bağlantı koptuysa veya süreç yarıda öldüyse sonuç
+    bilinemeyeceği için mesaj "durumu bilinmiyor" olarak kapatılır ve kararı insan verir.
+  - **Zamanlanmış kampanya**: gönder penceresinde ileri bir tarih seçilirse kampanya planlanır; izin, arşiv ve İYS
+    kontrolleri planlama anında değil **gönderim anında** yapılır. Planlanan gönderim, başlamadan önce iptal edilebilir
+    (hiç mesaj gitmediği için kayıt tamamen silinir).
     Kampanya sayfasında iletildi / teslim edildi / okundu / başarısız / gönderilmedi sayıları Meta bildirimlerinden gelir.
   - **İYS kuralı**: İYS entegratörü bağlı değilken müşterilere canlı gönderim kapalıdır; onaylı şablon yalnızca test
     numaralarına gönderilebilir. Entegratör bağlantı noktası `src/modules/campaigns/iys.ts`.
@@ -402,9 +413,8 @@ Ayrıntılar ve açık kararlar: [docs/ROADMAP.md](docs/ROADMAP.md).
   ücretini Circular'ın ödeyebilmesi için bir Meta Solution Partner kredi hattı henüz kurulmadı; bu yüzden gerçek
   numara bağlama ve gönderim canlı Meta hesabıyla denenmedi (Meta API'si testlerde taklit edildi). İYS entegratörü
   bağlı değil: müşterilere gönderim kapalı, İYS'ye ret (RET) bildirimi de henüz gönderilmiyor. Webhook için internetten
-  erişilebilir adres gerekir (localhost'a Meta ulaşamaz). Gönderim kuyruğu aynı sunucu sürecinde çalışır; sunucu yeniden
-  başlarsa kampanya sayfasındaki "Gönderime devam et" ile sürdürülür, kalıcı arka plan işçisi yok. İşletme başına tek
-  numara; zamanlanmış kampanya, görsel/düğmeli zengin şablon, gelen mesaj kutusu ve tıklama ölçümü yok. Ücret tahmini
+  erişilebilir adres gerekir (localhost'a Meta ulaşamaz). İşletme başına tek
+  numara; görsel/düğmeli zengin şablon, gelen mesaj kutusu ve tıklama ölçümü yok. Ücret tahmini
   sabit bir Türkiye ücretine dayanır; gerçek tutar Meta/çözüm ortağı faturasındadır.
 - SMS: gerçek Netgsm hesabıyla denenmedi (Netgsm API'si testlerde taklit edildi). İşletme başına tek Netgsm hesabı/başlık;
   bayi alt hesap açılışı ve kredi yükleme Netgsm panelinden yapılır. Teslim raporu elle güncellenir (otomatik sorgu yok).

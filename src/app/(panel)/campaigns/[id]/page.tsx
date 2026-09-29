@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requirePermission } from "@/lib/context";
 import { formatDateTime } from "@/lib/datetime";
 import { orNotFound } from "@/lib/page";
-import { resumeCampaignAction } from "@/modules/campaigns/actions";
+import { cancelScheduledCampaignAction, resumeCampaignAction } from "@/modules/campaigns/actions";
 import { refreshSmsStatusesAction } from "@/modules/campaigns/channel-actions";
 import { getCampaignDetail } from "@/modules/campaigns/campaign-service";
 import { getEmailOverview } from "@/modules/campaigns/email-service";
@@ -62,7 +62,13 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         title={c.name}
         description={
           <span className="flex flex-wrap items-center gap-2">
-            {c.status === "SENDING" ? <Badge tone="caution">Gönderiliyor</Badge> : <Badge tone="positive">Gönderim tamamlandı</Badge>}
+            {c.status === "SCHEDULED" ? (
+              <Badge tone="neutral">Planlandı</Badge>
+            ) : c.status === "SENDING" ? (
+              <Badge tone="caution">Gönderiliyor</Badge>
+            ) : (
+              <Badge tone="positive">Gönderim tamamlandı</Badge>
+            )}
             <span>{c.audienceLabel}</span>
             <span>
               · {formatDateTime(c.createdAt)}
@@ -90,6 +96,20 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             </p>
             <ActionButton action={refreshSmsStatusesAction} fields={{ id: c.id }} variant="secondary" pendingLabel="Netgsm'e soruluyor">
               Teslim durumlarını güncelle
+            </ActionButton>
+          </div>
+        </Card>
+      )}
+
+      {c.status === "SCHEDULED" && c.scheduledAt && (
+        <Card className="mt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 text-sm">
+            <p className="text-muted">
+              Gönderim <span className="text-fg">{formatDateTime(c.scheduledAt)}</span> için planlandı. İzin, arşiv ve İYS kontrolleri
+              gönderim anında yapılır. Henüz hiçbir mesaj gönderilmedi.
+            </p>
+            <ActionButton action={cancelScheduledCampaignAction} fields={{ id: c.id }} variant="danger" pendingLabel="İptal ediliyor">
+              Planlanan gönderimi iptal et
             </ActionButton>
           </div>
         </Card>

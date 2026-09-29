@@ -244,10 +244,8 @@ export async function processCampaign(campaignId: string) {
       } catch (error) {
         const e = error instanceof GraphError ? error : new GraphError("Beklenmeyen gönderim hatası.", "UNKNOWN", 0);
         if (!(error instanceof GraphError)) console.error("[campaign] gönderim hatası", error);
-        await db.campaignMessage.update({
-          where: { id: m.id },
-          data: { status: "FAILED", errorCode: e.code, errorMessage: e.message, failedAt: new Date() },
-        });
+        // failMessages: sağlayıcı açıkça reddettiyse mesajı yeniden denemeye hazırlar.
+        await failMessages([m.id], e.code, e.message);
       }
     });
   }
@@ -289,7 +287,8 @@ export async function listCampaigns(ctx: ServiceContext, opts: { limit?: number 
       name: c.name,
       channel: (isOneOf(CAMPAIGN_CHANNELS, c.channel) ? c.channel : "WHATSAPP") as CampaignChannel,
       mode: c.mode as "LIVE" | "TEST",
-      status: c.status as "SENDING" | "COMPLETED",
+      status: c.status as "SCHEDULED" | "SENDING" | "COMPLETED",
+      scheduledAt: c.scheduledAt,
       audienceLabel: c.audienceLabel,
       templateName: c.template?.name ?? null,
       recipientCount: c.recipientCount,
@@ -345,7 +344,8 @@ export async function getCampaignDetail(ctx: ServiceContext, id: string, now = n
     name: campaign.name,
     channel,
     mode: campaign.mode as "LIVE" | "TEST",
-    status: campaign.status as "SENDING" | "COMPLETED",
+    status: campaign.status as "SCHEDULED" | "SENDING" | "COMPLETED",
+    scheduledAt: campaign.scheduledAt,
     audienceLabel: campaign.audienceLabel,
     recipientCount: campaign.recipientCount,
     excludedCount: campaign.excludedCount,

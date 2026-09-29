@@ -22,7 +22,7 @@ import {
   type ExclusionReason,
 } from "@/modules/campaigns/rules";
 import type { TemplateView } from "@/modules/campaigns/templates";
-import { formatDate } from "@/lib/datetime";
+import { formatDate, toLocalInputValue } from "@/lib/datetime";
 import { EmailPreview } from "@/components/campaigns/email-preview";
 import { SmsBubble } from "@/components/campaigns/sms-bubble";
 import { WhatsAppBubble } from "@/components/campaigns/whatsapp-bubble";
@@ -144,6 +144,8 @@ export function CampaignComposer({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState<"TEST" | "LIVE" | null>(null);
+  /** Boş = hemen gönder. Doluysa kampanya planlanır (İstanbul saati). */
+  const [scheduledAt, setScheduledAt] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const smsInserter = useNameInserter(smsBody, setSmsBody, SMS_LIMITS.body);
@@ -258,15 +260,17 @@ export function CampaignComposer({
     if (!effectiveAudience) return;
     setSending("LIVE");
     setSendError(null);
+    // Boş bırakılırsa hemen gönderilir; doluysa kampanya planlanır.
+    const at = scheduledAt.trim() || undefined;
     const result =
       channel === "WHATSAPP"
         ? template
-          ? await sendLiveCampaignAction({ templateId: template.id, audience: effectiveAudience, name })
+          ? await sendLiveCampaignAction({ templateId: template.id, audience: effectiveAudience, name, scheduledAt: at })
           : ({ ok: false, message: "Şablon seçin." } as const)
         : channel === "SMS"
-          ? await sendSmsCampaignAction({ audience: effectiveAudience, body: smsBody, name })
-          : await sendEmailCampaignAction({ ...emailInput, audience: effectiveAudience, name });
-    finish(result, "Kampanya gönderimi başladı.");
+          ? await sendSmsCampaignAction({ audience: effectiveAudience, body: smsBody, name, scheduledAt: at })
+          : await sendEmailCampaignAction({ ...emailInput, audience: effectiveAudience, name, scheduledAt: at });
+    finish(result, at ? "Kampanya planlandı." : "Kampanya gönderimi başladı.");
   };
 
   const exclusions = preview ? (Object.entries(preview.exclusions) as [ExclusionReason, number][]).filter(([, n]) => n > 0) : [];
@@ -650,15 +654,35 @@ export function CampaignComposer({
                   &quot;<span className="text-fg">{email.subject}</span>&quot; konulu e-posta
                 </>
               )}{" "}
-              gönderilecek ({preview.label}). Gönderim başladıktan sonra geri alınamaz.
+              {scheduledAt.trim() ? " planlanacak" : " gönderilecek"} ({preview.label}). Gönderim başladıktan sonra geri alınamaz.
             </p>
+
+            {/* Planlama: boş bırakılırsa hemen gönderilir. */}
+            <div className="mt-4 rounded-field border border-line bg-raised/40 p-3.5">
+              <label htmlFor="schedule-at" className="text-[13px] font-medium text-fg">
+                Daha sonra gönder (isteğe bağlı)
+              </label>
+              <input
+                id="schedule-at"
+                type="datetime-local"
+                value={scheduledAt}
+                min={toLocalInputValue(new Date(Date.now() + 5 * 60_000))}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                className="input mt-1.5"
+              />
+              <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
+                {scheduledAt.trim()
+                  ? "Kampanya bu saatte otomatik gönderilir. İzin, arşiv ve İYS kontrolleri planlama anında değil, gönderim anında yapılır."
+                  : "Boş bırakırsanız hemen gönderilir."}
+              </p>
+            </div>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="ghost" onClick={() => dialogRef.current?.close()} disabled={sending === "LIVE"}>
                 Vazgeç
               </Button>
               <Button variant="primary" onClick={sendLive} disabled={sending === "LIVE"}>
                 {sending === "LIVE" && <Spinner />}
-                Gönder
+                {scheduledAt.trim() ? "Planla" : "Gönder"}
               </Button>
             </div>
           </div>

@@ -40,6 +40,8 @@ export type ActivityAction =
   | "whatsapp.template_submitted"
   | "campaign.sent"
   | "campaign.test_sent"
+  | "campaign.scheduled"
+  | "campaign.schedule_cancelled"
   | "sms.connected"
   | "sms.disconnected"
   | "email.settings_updated"

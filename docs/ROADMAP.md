@@ -110,7 +110,7 @@ Adım 1'de açık kalanlar:
   ya da bir Solution Partner ile Multi-Partner Solution (partnerin kredi hattı mekan hesaplarına paylaşılır). Kod iki yolda aynı.
 - **İYS (Adım 2):** yetkili entegratör seçimi ve API bağlantısı (`src/modules/campaigns/iys.ts`): gönderim öncesi MESAJ onayı
   sorgusu, izin yükleme, ret bildirimlerinin 3 iş günü içinde İYS'ye iletilmesi.
-- Kalıcı arka plan işçisi (şu an `after()` + "Gönderime devam et"), zamanlanmış kampanya, işletme başına birden çok numara.
+- ✔ Kalıcı arka plan işçisi ve zamanlanmış kampanya eklendi (`/api/cron/campaigns`, `vercel.json`). Açık: işletme başına birden çok numara.
 
 **Tamamlanan bölüm — SMS, e-posta ve Instagram (Adım 3):** Kampanya tabloları çok kanallı (`Campaign.channel`,
 SMS/e-posta içeriği, `CampaignMessage.toEmail/providerMessageId/openedAt/clickedAt`). `SmsAccount` (Netgsm, şifreli), İYS
@@ -126,10 +126,10 @@ Kalan adımlar: yapay zekâ kitle önerileri ve tetikleyicili otomatik kampanyal
 
 - Akış: hedef (etiket/kaynak/katılım segmenti) → içerik → önizleme → **onay** → gönder/planla → rapor.
 - `Campaign`, `CampaignRecipient` (gönderim anındaki izin durumunun anlık görüntüsü), `MessageEvent`.
-- Gönderim işçisi, her alıcı için izni ve opt-out'u **gönderim anında** yeniden kontrol eder.
+- ✔ Gönderim işçisi, her alıcı için izni ve opt-out'u **gönderim anında** yeniden kontrol eder.
 - Sağlayıcı adapter arayüzü: `send()`, `capabilities()` → rapor ekranı yalnızca `capabilities` içindeki metrikleri gösterir (SMS için açılma oranı yok).
 - Entegrasyon yoksa `DemoAdapter` — arayüzde "Demo gönderim, mesaj iletilmedi" etiketi zorunlu.
-- İş kuyruğu gerekir (ör. Postgres tabanlı kuyruk); tek süreçte `setTimeout` kullanılmamalı.
+- ✔ İş kuyruğu Postgres tabanlıdır; zamanlayıcı `/api/cron/campaigns` adresini periyodik çağırır.
 
 ## ✔ Raporlar — tamamlandı
 

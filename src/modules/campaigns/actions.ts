@@ -4,6 +4,7 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireServiceContext } from "@/lib/context";
 import { formString, success, toErrorState } from "@/lib/action";
+import { cancelScheduledCampaign, scheduleCampaign } from "./schedule";
 import type { ActionState } from "@/lib/action-state";
 import { AppError } from "@/lib/errors";
 import { addTestRecipient, completeEmbeddedSignup, connectWhatsAppManually, disconnectWhatsApp, removeTestRecipient } from "./accounts";
@@ -144,15 +145,37 @@ export async function sendTestCampaignAction(input: { templateId: string; name?:
   }
 }
 
-export async function sendLiveCampaignAction(input: { templateId: string; audience: unknown; name?: string }): Promise<Result<{ campaignId: string }>> {
+export async function sendLiveCampaignAction(input: {
+  templateId: string;
+  audience: unknown;
+  name?: string;
+  /** Doluysa kampanya hemen gönderilmez, planlanır (İstanbul saatiyle "YYYY-AA-GGTSS:dd"). */
+  scheduledAt?: string;
+}): Promise<Result<{ campaignId: string; scheduledAt?: string }>> {
   try {
     const ctx = await requireServiceContext();
     const campaign = await startLiveCampaign(ctx, input);
+    if (input.scheduledAt) {
+      const planned = await scheduleCampaign(ctx, campaign.id, input.scheduledAt);
+      revalidateCampaigns();
+      return { ok: true, data: { campaignId: campaign.id, scheduledAt: planned.scheduledAt.toISOString() } };
+    }
     after(() => processCampaign(campaign.id));
     revalidateCampaigns();
     return { ok: true, data: { campaignId: campaign.id } };
   } catch (error) {
     return fail(error);
+  }
+}
+
+export async function cancelScheduledCampaignAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const ctx = await requireServiceContext();
+    await cancelScheduledCampaign(ctx, formString(formData, "id"));
+    revalidateCampaigns();
+    return success("Planlanan gönderim iptal edildi.");
+  } catch (error) {
+    return toErrorState(error);
   }
 }
 

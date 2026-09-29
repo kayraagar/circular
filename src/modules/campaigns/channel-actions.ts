@@ -4,6 +4,8 @@ import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireServiceContext } from "@/lib/context";
+import type { ServiceContext } from "@/lib/authz";
+import { scheduleCampaign } from "./schedule";
 import { formString, success, toErrorState } from "@/lib/action";
 import type { ActionState } from "@/lib/action-state";
 import { AppError, ValidationError } from "@/lib/errors";
@@ -33,9 +35,21 @@ function fail(error: unknown): { ok: false; message: string } {
 
 const refresh = () => revalidatePath("/campaigns", "layout");
 
-async function startAndProcess(start: () => Promise<{ id: string }>): Promise<Result<{ campaignId: string }>> {
+/**
+ * Kampanyayı oluşturur ve gönderimi başlatır. `schedule` verilirse gönderim hemen başlamaz:
+ * kampanya planlanır, zamanı gelince arka plan işçisi başlatır.
+ */
+async function startAndProcess(
+  start: () => Promise<{ id: string }>,
+  schedule?: { ctx: ServiceContext; at: string },
+): Promise<Result<{ campaignId: string; scheduledAt?: string }>> {
   try {
     const campaign = await start();
+    if (schedule) {
+      const planned = await scheduleCampaign(schedule.ctx, campaign.id, schedule.at);
+      refresh();
+      return { ok: true, data: { campaignId: campaign.id, scheduledAt: planned.scheduledAt.toISOString() } };
+    }
     after(() => processCampaign(campaign.id));
     refresh();
     return { ok: true, data: { campaignId: campaign.id } };
@@ -74,10 +88,10 @@ export async function sendSmsTestAction(input: { body: string; name?: string }) 
   return startAndProcess(() => startSmsTest(ctx, input));
 }
 
-export async function sendSmsCampaignAction(input: { audience: unknown; body: string; name?: string }) {
+export async function sendSmsCampaignAction(input: { audience: unknown; body: string; name?: string; scheduledAt?: string }) {
   const ctx = await requireServiceContext().catch(() => null);
   if (!ctx) return fail(new AppError("Oturumunuz sona erdi."));
-  return startAndProcess(() => startSmsCampaign(ctx, input));
+  return startAndProcess(() => startSmsCampaign(ctx, input), input.scheduledAt ? { ctx, at: input.scheduledAt } : undefined);
 }
 
 export async function refreshSmsStatusesAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -135,10 +149,10 @@ export async function sendEmailTestAction(input: EmailInput) {
   return startAndProcess(() => startEmailTest(ctx, input));
 }
 
-export async function sendEmailCampaignAction(input: EmailInput & { audience: unknown }) {
+export async function sendEmailCampaignAction(input: EmailInput & { audience: unknown; scheduledAt?: string }) {
   const ctx = await requireServiceContext().catch(() => null);
   if (!ctx) return fail(new AppError("Oturumunuz sona erdi."));
-  return startAndProcess(() => startEmailCampaign(ctx, input));
+  return startAndProcess(() => startEmailCampaign(ctx, input), input.scheduledAt ? { ctx, at: input.scheduledAt } : undefined);
 }
 
 // ─────────────────────────────────────────────── Instagram

@@ -144,6 +144,7 @@ export default async function CampaignsPage() {
                           <Badge tone="neutral">{CAMPAIGN_CHANNEL_LABELS[c.channel]}</Badge>
                           <Badge tone={c.mode === "TEST" ? "muted" : "neutral"}>{c.mode === "TEST" ? "Test" : "Canlı"}</Badge>
                           {c.status === "SENDING" && <Badge tone="caution">Gönderiliyor</Badge>}
+                          {c.status === "SCHEDULED" && c.scheduledAt && <Badge tone="neutral">{formatDateTime(c.scheduledAt)} için planlandı</Badge>}
                           {c.audienceLabel}
                           {c.templateName ? ` · ${c.templateName}` : ""}
                         </p>

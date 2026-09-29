@@ -12,6 +12,45 @@ export type Claimed = { id: string; customerId: string | null; toPhone: string |
 export const BATCH_SIZE = 25;
 export const CONCURRENCY = 5;
 
+/** Sağlayıcı reddinde bir mesaj en fazla kaç kez denenir (ilk deneme dahil). */
+export const MAX_ATTEMPTS = 3;
+/** Yeniden denemeden önce beklenen süre. */
+export const RETRY_DELAY_MS = 2 * 60_000;
+
+/**
+ * Sağlayıcının isteği **açıkça** reddettiği, tekrar denemekle düzelebilecek hatalar.
+ * Yalnızca bu kodlarda mesajın alıcıya gitmediği kesindir; bağlantı kopması gibi sonucu
+ * bilinmeyen hatalar otomatik tekrarlanmaz (mükerrer mesaj riski).
+ */
+const RETRYABLE_CODES = new Set([
+  // HTTP durumu kod olarak yazıldığında (Meta, Brevo)
+  "429",
+  "500",
+  "502",
+  "503",
+  "504",
+  // Meta: uygulama/numara hız sınırı
+  "4",
+  "80007",
+  "130429",
+  "131048",
+  // Brevo
+  "too_many_requests",
+  // Netgsm: hız sınırı ve sistem hatası
+  "80",
+  "85",
+  "100",
+  "101",
+  "110",
+]);
+
+/** Kanal önekleri (NETGSM_80, BREVO_error) ayıklanarak bakılır. */
+export function isRetryableErrorCode(code: string | null | undefined): boolean {
+  if (!code) return false;
+  const bare = code.replace(/^(NETGSM|BREVO|SMS)_/, "");
+  return RETRYABLE_CODES.has(bare);
+}
+
 /** Sıradaki mesajları alır (başka bir işlemin aldıkları atlanır). Sıra boşsa null. */
 export async function claimBatch(campaignId: string, take = BATCH_SIZE): Promise<Claimed[] | null> {
   const queued = await db.campaignMessage.findMany({
@@ -23,7 +62,10 @@ export async function claimBatch(campaignId: string, take = BATCH_SIZE): Promise
   if (queued.length === 0) return null;
   const batch: Claimed[] = [];
   for (const m of queued) {
-    const { count } = await db.campaignMessage.updateMany({ where: { id: m.id, status: "QUEUED" }, data: { status: "SENDING", attemptedAt: new Date() } });
+    const { count } = await db.campaignMessage.updateMany({
+      where: { id: m.id, status: "QUEUED" },
+      data: { status: "SENDING", attemptedAt: new Date(), attempts: { increment: 1 } },
+    });
     if (count === 1) batch.push(m);
   }
   return batch;
@@ -33,9 +75,17 @@ export async function skipMessage(messageId: string, reason: ExclusionReason) {
   await db.campaignMessage.update({ where: { id: messageId }, data: { status: "SKIPPED", skipReason: reason } });
 }
 
-export async function failMessages(ids: string[], code: string, message: string) {
+/**
+ * Mesajları başarısız işaretler. Sağlayıcı isteği açıkça reddettiyse mesaj yeniden denemeye
+ * hazırlanır (`nextAttemptAt`); işçi bekleme dolunca sıraya geri alır.
+ */
+export async function failMessages(ids: string[], code: string, message: string, now = new Date()) {
   if (ids.length === 0) return;
-  await db.campaignMessage.updateMany({ where: { id: { in: ids } }, data: { status: "FAILED", errorCode: code, errorMessage: message.slice(0, 300), failedAt: new Date() } });
+  const nextAttemptAt = isRetryableErrorCode(code) ? new Date(now.getTime() + RETRY_DELAY_MS) : null;
+  await db.campaignMessage.updateMany({
+    where: { id: { in: ids } },
+    data: { status: "FAILED", errorCode: code, errorMessage: message.slice(0, 300), failedAt: now, nextAttemptAt },
+  });
 }
 
 export async function runLimited<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {

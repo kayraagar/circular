@@ -764,7 +764,8 @@ model Campaign {
   audienceKind          String // SEGMENT | TAG | EVENT | SELECTED | TEST_NUMBERS
   audienceKey           String? // segment anahtarı, etiket veya etkinlik kimliği
   audienceLabel         String // gönderim anındaki kitle açıklaması
-  status                String    @default("SENDING") // SENDING | COMPLETED
+  status                String    @default("SENDING") // SCHEDULED | SENDING | COMPLETED
+  scheduledAt           DateTime? // SCHEDULED iken gönderimin başlayacağı an (UTC)
   recipientCount        Int // kuyruğa alınan mesaj
   excludedCount         Int       @default(0) // gönderim öncesi elenen kişi
   exclusionSummary      String? // JSON: { "NO_CONSENT": 3, ... }
@@ -781,6 +782,7 @@ model Campaign {
 
   @@unique([id, tenantId])
   @@index([tenantId, createdAt])
+  @@index([status, scheduledAt])
 }
 
 /**
@@ -801,6 +803,8 @@ model CampaignMessage {
   errorMessage      String?
   billable          Boolean? // Meta'nın ücretlendirme bildirimi
   pricingCategory   String?
+  attempts          Int       @default(0) // kaç kez gönderilmeye çalışıldı (yeniden deneme sayacı)
+  nextAttemptAt     DateTime? // yeniden denemede bekleme sonu
   attemptedAt       DateTime?
   acceptedAt        DateTime?
   sentAt            DateTime?
