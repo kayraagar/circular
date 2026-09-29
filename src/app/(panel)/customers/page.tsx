@@ -40,9 +40,14 @@ export default async function CustomersPage({ searchParams }: { searchParams: Se
         description="İşletme genelinde tek müşteri kaydı. Aynı kişi farklı etkinliklere katıldığında yeni kayıt açılmaz."
         actions={
           canCreate && (
-            <ButtonLink href="/customers/new" variant="primary">
-              <IconPlus size={15} /> Müşteri ekle
-            </ButtonLink>
+            <div className="flex flex-wrap gap-2">
+              <ButtonLink href="/customers/ice-aktar" variant="secondary">
+                İçe aktar
+              </ButtonLink>
+              <ButtonLink href="/customers/new" variant="primary">
+                <IconPlus size={15} /> Müşteri ekle
+              </ButtonLink>
+            </div>
           )
         }
       />

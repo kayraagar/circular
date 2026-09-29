@@ -196,4 +196,4 @@ Açık kalanlar:
 - **Hız sınırı:** ✔ veritabanı tabanlı paylaşımlı sayaca geçildi (`RateLimitCounter`); tüm sunucu kopyaları aynı sınırı görür.
 - **Postgres'e geçiş:** `provider = "postgresql"`, migration'ları yeniden üret; `@@index` ve composite FK'ler aynen çalışır. Etkinlik kapasite kontrolü için `SELECT ... FOR UPDATE` veya Serializable izolasyon korunmalı.
 - **Oturum:** kayan süre uzatma, "tüm oturumlardan çık", 2FA (işletme sahibi için).
-- İçe aktarma (CSV) ve mükerrer birleştirme ekranı (aynı tenant içinde, manuel onaylı).
+- ✔ İçe aktarma (CSV) ve mükerrer eşleştirme eklendi: önizlemeli, izin içe aktarmayan, mevcut kaydı ezmeyen akış.

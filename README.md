@@ -407,6 +407,12 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   görünür ve sonuç metni yazılmadan kapatılamaz. Panel başvuru **almaz**: başvurular işletmenin ilan ettiği adrese gelir,
   burası takibidir. Müşteri kaydındaki KVKK bölümü üç işlemi yapar — veriyi JSON olarak dışa aktarma (m.11/b-c),
   anonimleştirme ve kalıcı silme.
+- **CSV içe aktarma** (Müşteriler → **İçe aktar**; `/customers/ice-aktar`): Excel'den veya başka bir sistemden gelen
+  listeyi yükler, **önce ne olacağını gösterir**, onaylamadan hiçbir şey yazmaz. Türkçe/İngilizce başlıklar ve noktalı
+  virgül/virgül/sekme ayracı tanınır; telefon ve doğum tarihi iki yaygın biçimde okunur. **İzin içe aktarılmaz:** bir
+  dosyada telefon bulunması ticari ileti iznini göstermez, İYS ve KVKK iznin nasıl alındığının kanıtlanabilir olmasını
+  ister — kayıtlar izinsiz açılır, izin işaretlenecekse açıklama zorunludur ve her izin kaydına yazılır. **Mükerrer kayıt
+  ezilmez:** aynı telefon/e-posta varsa satır atlanır veya (seçilirse) yalnızca **boş** alanlar doldurulur.
 - **Raporlar** (soldaki **Raporlar** → `/reports`; işletme sahibi ve CRM yöneticisi): 7/30/90 günlük hazır dönem veya
   **özel tarih aralığı** (en fazla bir yıl; bitiş bugünden ileri olamaz), seçili mekana göre. Karşılaştırma her zaman
   hemen öncesindeki aynı uzunluktaki dönemle yapılır. **CSV indirme**: özet, günlük seriler, etkinlikler, PR katkısı,
