@@ -414,7 +414,8 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   ister — kayıtlar izinsiz açılır, izin işaretlenecekse açıklama zorunludur ve her izin kaydına yazılır. **Mükerrer kayıt
   ezilmez:** aynı telefon/e-posta varsa satır atlanır veya (seçilirse) yalnızca **boş** alanlar doldurulur.
 - **Raporlar** (soldaki **Raporlar** → `/reports`; işletme sahibi ve CRM yöneticisi): 7/30/90 günlük hazır dönem veya
-  **özel tarih aralığı** (en fazla bir yıl; bitiş bugünden ileri olamaz), seçili mekana göre. Karşılaştırma her zaman
+  **özel tarih aralığı** (en fazla bir yıl; bitiş bugünden ileri olamaz), seçili mekana göre. **Yazdır / PDF** düğmesi
+  baskıya özel stille çıktı alır (aydınlık şema, gezinme gizli, kartlar bölünmez). Karşılaştırma her zaman
   hemen öncesindeki aynı uzunluktaki dönemle yapılır. **CSV indirme**: özet, günlük seriler, etkinlikler, PR katkısı,
   saat/gün dağılımı, kaynaklar, avantajlar ve kampanya sonuçları ayrı ayrı indirilir (noktalı virgül ayraç ve UTF-8 BOM ile
   Türkçe Excel'de doğru açılır; oranlar tam sayı yüzde). İndirme ekrandaki dönemi ve mekan kapsamını aynen taşır, yetki

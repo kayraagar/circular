@@ -143,9 +143,11 @@ Grafikler bağımlılıksız SVG.
 
 ✔ Özel tarih aralığı ve CSV dışa aktarma eklendi (dokuz ayrı veri kümesi; noktalı virgül + UTF-8 BOM ile Türkçe Excel uyumlu).
 
-Açık kalanlar: PDF çıktısı (tarayıcının yazdır menüsü kullanılabilir, baskıya özel stil yok), rapor e-postası
-(Brevo bağlanınca), kampanya dönüşümü (kampanya sonrası ziyaret ilişkisi) ve menü görüntüleme ölçümü — son ikisi
-bilinçli olarak ölçülmüyor.
+✔ Baskıya özel stil eklendi: **Yazdır / PDF** düğmesi sayfayı aydınlık şemaya çevirir, gezinmeyi gizler ve kartları
+sayfa ortasından bölmez; tarayıcının "PDF olarak kaydet" seçeneği düzgün çıktı verir.
+
+Açık kalanlar: rapor e-postası (Brevo bağlanınca), kampanya dönüşümü (kampanya sonrası ziyaret ilişkisi) ve menü
+görüntüleme ölçümü — son ikisi bilinçli olarak ölçülmüyor.
 
 ## Faz 3 — WhatsApp Club
 

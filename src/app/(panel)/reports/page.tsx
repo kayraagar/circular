@@ -10,6 +10,7 @@ import { REPORT_SETS, REPORT_SET_LABELS } from "@/modules/reports/csv";
 import { CheckInRing } from "@/components/guests/checkin-ring";
 import { AreaChart, BarChart, CHART_COLORS, Donut, KpiTile, RatioRows, formatNumber, formatPercent } from "@/components/reports/charts";
 import { Card, CardHeader, PageHeader } from "@/components/ui/primitives";
+import { PrintButton } from "@/components/reports/print-button";
 
 export const metadata: Metadata = { title: "Raporlar" };
 
@@ -73,7 +74,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
           </button>
         </form>
 
-        <details className="relative ml-auto">
+        {/* Baskı düğmesi: tarayıcının "PDF olarak kaydet" seçeneğiyle rapor çıktısı alınır. */}
+        <PrintButton />
+
+        <details data-print="hide" className="relative">
           <summary className="inline-flex h-9 cursor-pointer list-none items-center rounded-field border border-line px-3 text-[13px] text-fg transition-colors hover:border-line-strong hover:bg-raised">
             CSV indir
           </summary>

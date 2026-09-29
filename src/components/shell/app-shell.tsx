@@ -128,11 +128,12 @@ export function AppShell({ ctx, children }: { ctx: AppContext; children: ReactNo
       >
         İçeriğe geç
       </a>
-      <aside className="sticky top-0 hidden h-dvh border-r border-line px-4 py-6 lg:block">
+      {/* data-print: kenar çubuğu ve üst bar kağıda basılmaz (bkz. globals.css @media print). */}
+      <aside data-print="hide" className="sticky top-0 hidden h-dvh border-r border-line px-4 py-6 lg:block">
         <SidebarContent ctx={ctx} />
       </aside>
       <div className="flex min-w-0 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur-md sm:px-6 lg:px-10">
+        <header data-print="hide" className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur-md sm:px-6 lg:px-10">
           <MobileNav>
             <SidebarContent ctx={ctx} />
           </MobileNav>
