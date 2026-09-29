@@ -106,6 +106,7 @@ model Tenant {
   dataRequests         DataSubjectRequest[]
   phoneVerifications   PhoneVerification[]
   memberLoginCodes     MemberLoginCode[]
+  supportGrants        SupportAccessGrant[]
 
   // ─── Veri sorumlusu bilgileri (müşteriye açık formlarda ve ticari iletilerde gösterilir)
   legalName    String? // ticaret unvanı
@@ -978,6 +979,25 @@ model InstagramReplyLog {
 
 /// Ekip daveti: tek kullanımlık link. Ham kod saklanmaz, yalnızca SHA-256 özeti tutulur.
 /// Kabul edilince kullanıcı hesabı (yoksa) ve üyelik oluşur; link bir daha çalışmaz.
+/// Platform yöneticisinin bir işletmeye süreli destek erişimi. Erişim gerçek bir üyelik
+/// açarak verilir (yetki kontrolleri değişmez); süre dolunca üyelik kapatılır. Her verme ve
+/// kapatma hem platform kaydına hem işletmenin aktivite geçmişine yazılır.
+model SupportAccessGrant {
+  id           String    @id @default(cuid())
+  tenantId     String
+  userId       String // platform yöneticisi
+  membershipId String? // açılan üyelik (kapatılırken kullanılır)
+  reason       String
+  expiresAt    DateTime
+  endedAt      DateTime?
+  createdAt    DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, endedAt])
+  @@index([expiresAt])
+}
+
 /// Üyelik alanına şifresiz giriş kodu (SMS veya e-posta). Kod düz saklanmaz, kısa sürede
 /// geçersizleşir ve sınırlı sayıda denenebilir.
 model MemberLoginCode {

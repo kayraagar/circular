@@ -65,6 +65,10 @@ export type ActivityAction =
   | "venue.updated"
   | "venue.closed"
   | "venue.activated"
+  | "platform.tenant_suspended"
+  | "platform.tenant_restored"
+  | "platform.support_access_granted"
+  | "platform.support_access_ended"
   | "tenant.legal_updated";
 
 export type ActivityInput = {

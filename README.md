@@ -358,6 +358,12 @@ Tenant (işletme) ile Venue (mekan/şube) ayrı modellenir. Müşteri **işletme
   "bu işletme aydınlatma bilgilerini henüz tamamlamadı" uyarısı çıkar.
   **Rol dağılımı:** panele giren kişilerin verisi için veri sorumlusu Circular, mekanın müşterileri için ilgili işletmedir;
   Circular bu veriler bakımından veri işleyendir.
+- **Platform konsolu** (`/platform`; yalnızca `User.isPlatformAdmin`): işletme listesi, toplam sayılar (mekan, üye,
+  müşteri, etkinlik, 30 günlük mesaj), askıya alma ve **süreli destek erişimi**. Platform yöneticisi hesabı işletmelerin
+  müşteri verisine kendiliğinden erişmez. Destek erişimi üç kuralla sınırlıdır: gerekçe zorunlu, en fazla 24 saat, ve
+  erişim gerçek bir üyelik açılarak verilir — yetki kontrolleri değişmez, işlem hem platform kaydına hem **işletmenin
+  kendi aktivite geçmişine** yazılır, yani işletme kimin ne zaman baktığını görür. Süre dolunca arka plan işçisi üyeliği
+  kapatır. Askıya alınan işletmede panel girişleri ve müşteriye açık sayfalar kapanır; veri silinmez.
 - **Mekan yönetimi** (soldaki **Ayarlar**; yalnızca işletme sahibi): mekan ekler, adını/türünü/şehrini/adresini
   düzenler ve mekanı kapatıp açarsınız. **Mekan silinmez** — geçmiş etkinlik, giriş ve avantaj kayıtları ona bağlıdır;
   kapatılan mekanda yeni kayıt açılmaz, geçmiş korunur. İşletmede her zaman en az bir açık mekan kalır. Kısa ad

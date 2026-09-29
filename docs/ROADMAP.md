@@ -182,7 +182,7 @@ Açık kalanlar:
 
 ## Platform ve operasyon
 
-- **Platform yöneticisi konsolu:** tenant listesi, askıya alma; müşteri verisine destek erişimi yalnızca süreli ve denetim kaydıyla.
+- **Platform yöneticisi konsolu:** ✔ tamamlandı (`/platform`): tenant listesi ve kullanım sayıları, askıya alma ve süreli destek erişimi (gerekçeli, en fazla 24 saat, işletmenin aktivite geçmişine yazılır, süre dolunca kendiliğinden kapanır).
 - **Ekip yönetimi:** ✔ tamamlandı — Ayarlar ekranından tek kullanımlık davet bağlantısı, rol değiştirme, mekan erişimi
   ve erişim kapatma. ✔ Şifre sıfırlama eklendi: işletme sahibinin ürettiği tek kullanımlık bağlantı ve kişinin kendi
   talebi (`/sifremi-unuttum`; e-posta servisi bağlanınca gönderim açılır). Açık kalanlar: davetin e-postayla gönderilmesi

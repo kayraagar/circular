@@ -199,6 +199,14 @@ export function describeActivity(item: ActivityItem): ActivityDescription {
       return { verb: "mekanı kapattı", subject: { label: str(m.name) || "mekan", href: "/settings" } };
     case "venue.activated":
       return { verb: "mekanı yeniden açtı", subject: { label: str(m.name) || "mekan", href: "/settings" } };
+    case "platform.tenant_suspended":
+      return { verb: "işletmeyi askıya aldı", subject: { label: str(m.name) || "işletme", href: "/settings" }, detail: str(m.reason) || undefined };
+    case "platform.tenant_restored":
+      return { verb: "işletmenin askısını kaldırdı", subject: { label: str(m.name) || "işletme", href: "/settings" } };
+    case "platform.support_access_granted":
+      return { verb: "destek erişimi aldı", subject: { label: "Platform desteği", href: "/settings" }, detail: str(m.reason) || undefined };
+    case "platform.support_access_ended":
+      return { verb: "destek erişimi sona erdi", subject: { label: "Platform desteği", href: "/settings" }, detail: m.automatic ? "süre doldu" : undefined };
     case "tenant.legal_updated":
       return { verb: "veri sorumlusu bilgilerini güncelledi", subject: { label: "Yasal bilgiler", href: "/settings" } };
     default:

@@ -5,6 +5,7 @@ import { MAX_ATTEMPTS, isRetryableErrorCode } from "./queue";
 import { pruneRateLimitCounters } from "@/lib/rate-limit";
 import { prunePhoneVerifications } from "@/modules/verification/service";
 import { pruneMemberRecords } from "@/modules/member/service";
+import { expireSupportAccess } from "@/modules/platform/service";
 
 /**
  * Kalıcı gönderim işçisi.
@@ -133,6 +134,8 @@ export async function runCampaignWorker(now = new Date()): Promise<WorkerReport>
   await pruneRateLimitCounters(now).catch(() => undefined);
   await prunePhoneVerifications(now).catch(() => undefined);
   await pruneMemberRecords(now).catch(() => undefined);
+  // Süresi dolan destek erişimleri kapatılır (platform denetimi).
+  await expireSupportAccess(now).catch(() => undefined);
 
   return {
     startedScheduled: scheduled.length,
